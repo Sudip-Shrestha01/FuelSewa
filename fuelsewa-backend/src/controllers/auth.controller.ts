@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import User from "../models/user.model";
+import Driver from "../models/driver.model";
 import { generateToken } from "../config/jwt";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -79,44 +80,51 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    // Validate required fields
     if (!email || !password) {
       res.status(400).json({ success: false, message: "Email and password are required" });
       return;
     }
 
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) {
+    // Check User collection first, then Driver collection
+    let account: any = await User.findOne({ email });
+    let source: "user" | "driver" = "user";
+
+    if (!account) {
+      account = await Driver.findOne({ email });
+      source = "driver";
+    }
+
+    if (!account) {
       res.status(401).json({ success: false, message: "Invalid email or password" });
       return;
     }
 
-    // Verify password
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await account.comparePassword(password);
     if (!isMatch) {
       res.status(401).json({ success: false, message: "Invalid email or password" });
       return;
     }
 
+    const role = source === "driver" ? "driver" : account.role;
+
     const token = generateToken({
-      id: user._id.toString(),
-      email: user.email,
-      role: user.role,
+      id: account._id.toString(),
+      email: account.email,
+      role,
     });
 
     res.status(200).json({
       success: true,
-      message: `${user.role.charAt(0).toUpperCase() + user.role.slice(1)} logged in successfully`,
+      message: `${role.charAt(0).toUpperCase() + role.slice(1)} logged in successfully`,
       token,
       data: {
-        id: user._id,
-        firstName: user.firstName,
-        middleName: user.middleName,
-        lastName: user.lastName,
-        phone: user.phone,
-        email: user.email,
-        role: user.role,
+        id: account._id,
+        firstName: account.firstName,
+        middleName: account.middleName,
+        lastName: account.lastName,
+        phone: account.phone || account.contactNumber,
+        email: account.email,
+        role,
       },
     });
   } catch (error: any) {

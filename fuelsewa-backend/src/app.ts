@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import authRoutes from "./routes/auth.routes";
+import driverRoutes from "./routes/driver.routes";
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/drivers", driverRoutes);
 
 // Socket.io connection
 io.on("connection", (socket) => {

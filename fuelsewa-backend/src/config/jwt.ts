@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
-import { UserRole } from "../models/user.model";
+
+export type UserRole = "driver" | "customer";
 
 export interface JwtPayload {
   id: string;

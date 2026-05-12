@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
-
-export type UserRole = "driver" | "customer";
+import { UserRole } from "../config/jwt";
 
 export interface IUser extends Document {
   firstName: string;
