@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-export type UserRole = "driver" | "customer";
+export type UserRole = "driver" | "customer" | "admin";
 
 export interface JwtPayload {
   id: string;

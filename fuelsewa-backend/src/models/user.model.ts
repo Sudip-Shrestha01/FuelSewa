@@ -50,7 +50,7 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ["driver", "customer"],
+      enum: ["driver", "customer", "admin"],
       default: "customer",
     },
   },
