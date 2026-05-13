@@ -8,6 +8,8 @@ import authRoutes from "./routes/auth.routes";
 import driverRoutes from "./routes/driver.routes";
 import orderRoutes from "./routes/order.routes";
 import pricingRoutes from "./routes/pricing.routes";
+import profileRoutes from "./routes/profile.routes";
+import adminRoutes from "./routes/admin.routes";
 
 dotenv.config();
 
@@ -36,6 +38,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/pricing", pricingRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Socket.io connection
 io.on("connection", (socket) => {
