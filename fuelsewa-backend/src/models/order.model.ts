@@ -29,6 +29,8 @@ export interface IOrder extends Document {
   isEmergency: boolean;
   assignedDriverId: mongoose.Types.ObjectId | null;
   estimatedDeliveryMinutes: number | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const orderSchema = new Schema<IOrder>(

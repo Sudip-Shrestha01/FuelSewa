@@ -8,6 +8,7 @@ import {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
+  getCompletedOrders,
 } from "../controllers/admin.controller";
 import { authenticate, authorizeRoles } from "../middlewares/auth.middleware";
 
@@ -26,6 +27,7 @@ router.get("/drivers/:id", getDriverById);                          // GET   /ap
 router.patch("/drivers/:id/toggle-status", toggleDriverStatus);     // PATCH /api/admin/drivers/:id/toggle-status
 
 // Orders
+router.get("/orders/completed", getCompletedOrders);                // GET   /api/admin/orders/completed
 router.get("/orders", getAllOrders);                                 // GET   /api/admin/orders?status=pending&fuelType=petrol
 router.get("/orders/:id", getOrderById);                            // GET   /api/admin/orders/:id
 router.patch("/orders/:id", updateOrderStatus);                     // PATCH /api/admin/orders/:id
