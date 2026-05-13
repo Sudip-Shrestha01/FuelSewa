@@ -137,3 +137,45 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ success: false, message: "Internal server error", error: error.message });
   }
 };
+
+export const getCompletedOrders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orders = await Order.find({ status: "delivered" })
+      .sort({ updatedAt: -1 })
+      .populate("userId", "firstName lastName email phone")
+      .populate("assignedDriverId", "firstName lastName contactNumber");
+
+    const data = orders.map((order: any) => ({
+      orderId: order._id,
+      status: order.status,
+      customer: {
+        id: order.userId?._id,
+        name: `${order.userId?.firstName} ${order.userId?.lastName}`,
+        email: order.userId?.email,
+        phone: order.userId?.phone,
+      },
+      driver: order.assignedDriverId
+        ? {
+            id: order.assignedDriverId._id,
+            name: `${order.assignedDriverId.firstName} ${order.assignedDriverId.lastName}`,
+            contactNumber: order.assignedDriverId.contactNumber,
+          }
+        : null,
+      fuelType: order.fuelType,
+      quantity: order.quantity,
+      deliveryLocation: {
+        address: order.deliveryLocation.address,
+        landmark: order.deliveryLocation.landmark,
+      },
+      pricing: order.pricing,
+      isEmergency: order.isEmergency,
+      note: order.note,
+      createdAt: order.createdAt,
+      completedAt: order.updatedAt,
+    }));
+
+    res.status(200).json({ success: true, count: data.length, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+  }
+};

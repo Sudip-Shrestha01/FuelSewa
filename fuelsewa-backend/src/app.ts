@@ -10,6 +10,7 @@ import orderRoutes from "./routes/order.routes";
 import pricingRoutes from "./routes/pricing.routes";
 import profileRoutes from "./routes/profile.routes";
 import adminRoutes from "./routes/admin.routes";
+import driverOrderRoutes from "./routes/driverOrder.routes";
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/pricing", pricingRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/driver/orders", driverOrderRoutes);
 
 // Socket.io connection
 io.on("connection", (socket) => {
