@@ -57,7 +57,7 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="you@example.com"
+              placeholder="you@google.com"
               placeholderTextColor={Colors.gray400}
               value={email}
               onChangeText={setEmail}

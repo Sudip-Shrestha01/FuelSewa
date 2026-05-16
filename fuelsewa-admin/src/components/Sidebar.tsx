@@ -4,12 +4,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartPie, faBoxes, faTruck, faUsers,
   faTag, faRightFromBracket, faChevronLeft, faChevronRight,
+  faMapLocationDot,
 } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
 
 const links = [
   { to: "/", label: "Dashboard", icon: faChartPie },
   { to: "/orders", label: "Orders", icon: faBoxes },
+  { to: "/dispatch", label: "Dispatch", icon: faMapLocationDot },
   { to: "/drivers", label: "Drivers", icon: faTruck },
   { to: "/customers", label: "Customers", icon: faUsers },
   { to: "/pricing", label: "Pricing", icon: faTag },

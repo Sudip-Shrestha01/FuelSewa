@@ -87,7 +87,7 @@ export default function DriversPage() {
       </div>
 
       {/* Search */}
-      <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search by name, email, phone or vehicle..." className="max-w-xs" />
+      <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} className="max-w-xs" />
 
       {/* Table */}
       <div className="bg-white border border-surface-200/80 rounded-xl overflow-hidden shadow-card">

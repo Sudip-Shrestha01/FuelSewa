@@ -133,12 +133,6 @@ export default function DashboardPage() {
             {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
-        <div className="hidden sm:flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 rounded-lg border border-primary-100">
-            <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse-soft" />
-            <span className="text-xs font-semibold text-primary-700">Live</span>
-          </div>
-        </div>
       </div>
 
       {/* Fuel Prices */}
