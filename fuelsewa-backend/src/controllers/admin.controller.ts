@@ -79,7 +79,14 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
     const { status, fuelType } = req.query;
 
     const filter: Record<string, any> = {};
-    if (status) filter.status = status;
+    if (status) {
+      const statusArray = (status as string).split(",");
+      if (statusArray.length > 1) {
+        filter.status = { $in: statusArray };
+      } else {
+        filter.status = status;
+      }
+    }
     if (fuelType) filter.fuelType = fuelType;
 
     const orders = await Order.find(filter)

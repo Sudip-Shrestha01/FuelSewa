@@ -219,8 +219,8 @@ export const getDriversWithLocations = async (_req: Request, res: Response): Pro
   try {
     const drivers = await Driver.find({
       isActive: true,
-      "location.latitude": { $exists: true, $ne: null },
-      "location.longitude": { $exists: true, $ne: null },
+      // We want to see all active drivers on the map if possible.
+      // If they have no location, they won't be shown as markers but will be in the data.
     }).select("firstName lastName contactNumber vehicleInfo location");
 
     res.status(200).json({

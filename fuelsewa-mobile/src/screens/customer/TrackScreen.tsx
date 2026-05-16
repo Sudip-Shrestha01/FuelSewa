@@ -172,23 +172,39 @@ export default function TrackScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [resolvedOrderId, setResolvedOrderId] = useState<string | null>(null);
   const webviewRef = useRef<WebView>(null);
   const socketRef = useRef<Socket | null>(null);
 
-  const orderId = routeParams?.orderId;
+  const orderIdFromParams = routeParams?.orderId;
 
   // 1. Load order data
   useEffect(() => {
-    if (!orderId) {
-      setError("No active order to track");
-      setLoading(false);
-      return;
-    }
+    let activeId = orderIdFromParams;
 
     (async () => {
       try {
         setLoading(true);
-        const orderRes = await api.get(`/orders/${orderId}`);
+        setError(null);
+
+        // If no ID provided (e.g. opened via tab), find the latest active order
+        if (!activeId) {
+          const ordersRes = await api.get("/orders/my-orders");
+          const activeOrders = (ordersRes.data?.data || []).filter((o: any) =>
+            ["accepted", "in_progress"].includes(o.status)
+          );
+          if (activeOrders.length > 0) {
+            activeId = activeOrders[0]._id;
+          } else {
+            setError("No active order to track");
+            setLoading(false);
+            return;
+          }
+        }
+
+        setResolvedOrderId(activeId);
+
+        const orderRes = await api.get(`/orders/${activeId}`);
         const orderData = orderRes.data.data;
         setOrder(orderData);
 
@@ -221,11 +237,11 @@ export default function TrackScreen() {
         setLoading(false);
       }
     })();
-  }, [orderId]);
+  }, [orderIdFromParams]);
 
   // 2. Socket connection
   useEffect(() => {
-    if (!orderId) return;
+    if (!resolvedOrderId) return;
 
     const socket = io(SOCKET_URL, {
       transports: ["websocket"],
@@ -236,7 +252,7 @@ export default function TrackScreen() {
 
     socket.on("connect", () => {
       console.log("Tracking socket connected:", socket.id);
-      socket.emit("joinOrder", orderId);
+      socket.emit("joinOrder", resolvedOrderId);
     });
 
     socket.on("locationUpdate", (data: any) => {
@@ -252,11 +268,11 @@ export default function TrackScreen() {
     socket.on("connect_error", (err) => console.log("Socket error:", err.message));
 
     return () => {
-      socket.emit("leaveOrder", orderId);
+      socket.emit("leaveOrder", resolvedOrderId);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [orderId]);
+  }, [resolvedOrderId]);
 
   // 3. Update map when polyline changes
   useEffect(() => {

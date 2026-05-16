@@ -70,8 +70,10 @@ const createIcon = (color: string, emoji: string) =>
     popupAnchor: [0, -20],
   });
 
-const orderIcon = createIcon("#EF4444", "📍");
-const orderEmergencyIcon = createIcon("#DC2626", "🆘");
+const orderIcon = createIcon("#F59E0B", "📍"); // Amber for Pending
+const orderAcceptedIcon = createIcon("#3B82F6", "🔵"); // Blue for Accepted
+const orderInProgressIcon = createIcon("#10B981", "⛽"); // Emerald for In Progress
+const orderEmergencyIcon = createIcon("#EF4444", "🆘"); // Red for SOS
 const driverIcon = createIcon("#10B981", "🚛");
 const selectedDriverIcon = createIcon("#3B82F6", "✓");
 
@@ -133,8 +135,16 @@ export default function DispatchMapPage() {
   // Fit map to all markers
   useEffect(() => {
     const pts: [number, number][] = [];
-    orders.forEach((o) => pts.push([o.deliveryLocation.latitude, o.deliveryLocation.longitude]));
-    drivers.forEach((d) => pts.push([d.location.latitude, d.location.longitude]));
+    orders.forEach((o) => {
+      if (o.deliveryLocation?.latitude && o.deliveryLocation?.longitude) {
+        pts.push([o.deliveryLocation.latitude, o.deliveryLocation.longitude]);
+      }
+    });
+    drivers.forEach((d) => {
+      if (d.location?.latitude && d.location?.longitude) {
+        pts.push([d.location.latitude, d.location.longitude]);
+      }
+    });
     if (pts.length > 0) {
       setBounds(L.latLngBounds(pts.map((p) => L.latLng(p[0], p[1]))));
     }
@@ -326,7 +336,7 @@ export default function DispatchMapPage() {
             <FitBounds bounds={bounds} />
 
             {/* Order Markers */}
-            {orders.map((order) => (
+            {orders.filter(o => o.deliveryLocation?.latitude && o.deliveryLocation?.longitude).map((order) => (
               <Marker
                 key={order._id}
                 position={[order.deliveryLocation.latitude, order.deliveryLocation.longitude]}
@@ -350,7 +360,7 @@ export default function DispatchMapPage() {
             ))}
 
             {/* Driver Markers */}
-            {drivers.map((driver) => (
+            {drivers.filter(d => d.location?.latitude && d.location?.longitude).map((driver) => (
               <Marker
                 key={driver._id}
                 position={[driver.location.latitude, driver.location.longitude]}
@@ -415,16 +425,16 @@ export default function DispatchMapPage() {
                       className="w-full text-left px-5 py-3.5 hover:bg-surface-50 transition-colors duration-150 group"
                     >
                       <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-[13px] text-surface-800">
-                            #{order._id.slice(-6).toUpperCase()}
-                          </span>
-                          {order.isEmergency && (
-                            <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[9px] font-bold rounded-md uppercase">
-                              SOS
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-surface-900 text-[13px]">
+                              #{order._id.slice(-6).toUpperCase()}
                             </span>
-                          )}
-                        </div>
+                            {order.isEmergency && (
+                              <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[9px] font-bold rounded-md uppercase">
+                                SOS
+                              </span>
+                            )}
+                          </div>
                         <FontAwesomeIcon
                           icon={faChevronRight}
                           className="text-[10px] text-surface-300 group-hover:text-surface-500 transition-colors"

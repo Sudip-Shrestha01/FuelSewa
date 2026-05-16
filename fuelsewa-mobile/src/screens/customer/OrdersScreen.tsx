@@ -354,7 +354,7 @@ export default function OrdersScreen() {
           style={styles.cardTrackBtn}
           onPress={() => {
             // @ts-ignore
-            navigation.navigate("Tabs", { screen: "Track", params: { orderId: item._id } });
+            navigation.navigate("Track", { orderId: item._id });
           }}
         >
           <Icon name="map" size={14} color={Colors.primary} />

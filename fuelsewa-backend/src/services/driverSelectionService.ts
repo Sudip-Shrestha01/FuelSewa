@@ -32,18 +32,20 @@ export async function findOptimalDrivers(
   // Fetch all active drivers with location data
   const activeDrivers = await Driver.find({
     isActive: true,
-    "location.latitude": { $exists: true, $ne: null },
-    "location.longitude": { $exists: true, $ne: null },
   }).select(
     "firstName lastName contactNumber vehicleInfo location"
   );
+
+  // Default location (e.g. Kathmandu center) if driver hasn't set one yet
+  const DEFAULT_LAT = 27.7172;
+  const DEFAULT_LNG = 85.3240;
 
   // Transform to A* candidates
   const candidates: DriverCandidate[] = activeDrivers.map((driver: any) => ({
     driverId: driver._id.toString(),
     driverName: `${driver.firstName} ${driver.lastName}`,
-    latitude: driver.location.latitude,
-    longitude: driver.location.longitude,
+    latitude: driver.location?.latitude ?? DEFAULT_LAT,
+    longitude: driver.location?.longitude ?? DEFAULT_LNG,
     vehicleNumber: driver.vehicleInfo?.vehicleNumber || "",
     vehicleType: driver.vehicleInfo?.vehicleType || "",
     contactNumber: driver.contactNumber || "",
