@@ -12,9 +12,11 @@ interface FormFieldProps {
   value: string;
   onChange: (value: string) => void;
   options?: { label: string; value: string }[];
+  max?: string;
+  min?: string;
 }
 
-function FormField({ label, type = "text", placeholder, required, value, onChange, options }: FormFieldProps) {
+function FormField({ label, type = "text", placeholder, required, value, onChange, options, max, min }: FormFieldProps) {
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-semibold text-surface-600">
@@ -37,6 +39,8 @@ function FormField({ label, type = "text", placeholder, required, value, onChang
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          max={max}
+          min={min}
           className="w-full bg-white border border-black rounded-lg px-3 py-2 text-sm text-surface-900 placeholder:text-surface-300 focus:outline-none focus:ring-1 focus:ring-black transition-all"
         />
       )}
@@ -48,6 +52,7 @@ export default function CreateDriverPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [dobError, setDobError] = useState("");
 
   const [form, setForm] = useState({
     firstName: "", middleName: "", lastName: "",
@@ -61,10 +66,30 @@ export default function CreateDriverPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    setDobError("");
+
+    // Validate DOB — must be a past date and driver must be ≥ 18
+    if (!form.dateOfBirth) {
+      setDobError("Date of birth is required");
+      return;
+    }
+    const dob = new Date(form.dateOfBirth);
+    const today = new Date();
+    if (dob >= today) {
+      setDobError("Date of birth must be a past date");
+      return;
+    }
+    const age = today.getFullYear() - dob.getFullYear() -
+      (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+    if (age < 18) {
+      setDobError(`Driver must be at least 18 years old (current age: ${age})`);
+      return;
+    }
+
+    setLoading(true);
     try {
-      await api.post("/admin/drivers", form);
+      await api.post("/drivers", form);
       navigate("/drivers");
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to create driver");
@@ -135,7 +160,19 @@ export default function CreateDriverPage() {
               onChange={(v) => updateForm("gender", v)}
               options={[{ label: "Male", value: "male" }, { label: "Female", value: "female" }, { label: "Other", value: "other" }]}
             />
-            <FormField label="DOB" type="date" required value={form.dateOfBirth} onChange={(v) => updateForm("dateOfBirth", v)} />
+            <FormField
+              label="DOB"
+              type="date"
+              required
+              value={form.dateOfBirth}
+              max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split("T")[0]}
+              onChange={(v) => { updateForm("dateOfBirth", v); setDobError(""); }}
+            />
+            {dobError && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1.5">
+                <span>⚠</span> {dobError}
+              </p>
+            )}
           </div>
         </section>
 
@@ -175,7 +212,7 @@ export default function CreateDriverPage() {
               type="select"
               value={form.vehicleInfo.vehicleType}
               onChange={(v) => updateForm("vehicleInfo.vehicleType", v)}
-              options={[{ label: "Truck", value: "truck" }, { label: "Van", value: "van" }, { label: "Bike", value: "bike" }]}
+              options={[{ label: "Scooter", value: "scooter" }, { label: "Bike", value: "bike" }]}
             />
           </div>
         </section>

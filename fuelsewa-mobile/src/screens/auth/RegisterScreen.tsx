@@ -79,20 +79,20 @@ export default function RegisterScreen({ navigation }: Props) {
           <View style={styles.row}>
             <View style={[styles.inputGroup, styles.flex]}>
               <Text style={styles.label}>First Name *</Text>
-              <TextInput style={styles.input} placeholder="John" placeholderTextColor={Colors.gray400}
+              <TextInput style={styles.input} placeholder="Ram" placeholderTextColor={Colors.gray400}
                 value={form.firstName} onChangeText={(v) => update("firstName", v)} />
             </View>
             <View style={styles.spacer} />
             <View style={[styles.inputGroup, styles.flex]}>
               <Text style={styles.label}>Last Name *</Text>
-              <TextInput style={styles.input} placeholder="Doe" placeholderTextColor={Colors.gray400}
+              <TextInput style={styles.input} placeholder="Yadav" placeholderTextColor={Colors.gray400}
                 value={form.lastName} onChangeText={(v) => update("lastName", v)} />
             </View>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Middle Name</Text>
-            <TextInput style={styles.input} placeholder="Optional" placeholderTextColor={Colors.gray400}
+            <TextInput style={styles.input} placeholder="Kumar" placeholderTextColor={Colors.gray400}
               value={form.middleName} onChangeText={(v) => update("middleName", v)} />
           </View>
 

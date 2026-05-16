@@ -4,7 +4,7 @@ import {
   RefreshControl, ActivityIndicator, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons as Icon } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { Colors } from "../../theme/colors";
 import api from "../../api/axios";

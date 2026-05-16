@@ -45,24 +45,11 @@ export default function LoginPage() {
         {/* Center content */}
         <div className="relative z-10 max-w-md">
           <h2 className="text-4xl font-bold text-white tracking-tight leading-tight mb-4">
-            Manage your fuel delivery
-            <span className="text-primary-400"> business</span> with ease.
+            FuelSewa Admin Panel
           </h2>
           <p className="text-surface-400 text-[15px] leading-relaxed">
-            Monitor orders, manage drivers, track deliveries, and control pricing — all from one powerful admin dashboard.
+            Monitor and manage all fuel deliveries in real time.
           </p>
-
-          {/* Feature pills */}
-          <div className="flex flex-wrap gap-2 mt-8">
-            {["Real-time Tracking", "Driver Management", "Smart Pricing", "Analytics"].map((f) => (
-              <span
-                key={f}
-                className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.06] text-surface-300 border border-white/[0.06]"
-              >
-                {f}
-              </span>
-            ))}
-          </div>
         </div>
 
         {/* Footer */}
@@ -97,7 +84,6 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@fuelsewa.com"
                 autoComplete="email"
                 className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm text-surface-800 placeholder:text-surface-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 focus:bg-white transition-all duration-200"
               />
@@ -115,7 +101,6 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
                   autoComplete="current-password"
                   className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 pr-11 text-sm text-surface-800 placeholder:text-surface-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 focus:bg-white transition-all duration-200"
                 />
@@ -165,7 +150,6 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="flex items-center gap-3 my-6">
             <div className="flex-1 h-px bg-surface-200" />
-            <span className="text-xs text-surface-400 font-medium">FuelSewa Admin v2.0</span>
             <div className="flex-1 h-px bg-surface-200" />
           </div>
 
