@@ -51,6 +51,20 @@ export const addDriver = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Validate driver must be at least 18 years old
+    const dob = new Date(dateOfBirth);
+    const today = new Date();
+    const age = today.getFullYear() - dob.getFullYear() -
+      (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+    if (isNaN(dob.getTime()) || dob >= today) {
+      res.status(400).json({ success: false, message: "Date of birth must be a valid past date" });
+      return;
+    }
+    if (age < 18) {
+      res.status(400).json({ success: false, message: "Driver must be at least 18 years old" });
+      return;
+    }
+
     // Check duplicates
     const existingEmail = await Driver.findOne({ email });
     if (existingEmail) {

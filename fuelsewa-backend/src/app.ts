@@ -11,6 +11,7 @@ import pricingRoutes from "./routes/pricing.routes";
 import profileRoutes from "./routes/profile.routes";
 import adminRoutes from "./routes/admin.routes";
 import driverOrderRoutes from "./routes/driverOrder.routes";
+import dispatchRoutes from "./routes/dispatch.routes";
 
 dotenv.config();
 
@@ -40,17 +41,30 @@ app.use("/api/drivers", driverRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/pricing", pricingRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/dispatch", dispatchRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/driver/orders", driverOrderRoutes);
 
-// Socket.io connection
-io.on("connection", (socket) => {
-  console.log(`Socket connected: ${socket.id}`);
+  // Socket.io connection
+  io.on("connection", (socket) => {
+    console.log(`Socket connected: ${socket.id}`);
 
-  socket.on("disconnect", () => {
-    console.log(`Socket disconnected: ${socket.id}`);
+    // Join a room for a specific order
+    socket.on("joinOrder", (orderId: string) => {
+      socket.join(`order_${orderId}`);
+      console.log(`Socket ${socket.id} joined order room: order_${orderId}`);
+    });
+
+    // Leave order room
+    socket.on("leaveOrder", (orderId: string) => {
+      socket.leave(`order_${orderId}`);
+      console.log(`Socket ${socket.id} left order room: order_${orderId}`);
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`Socket disconnected: ${socket.id}`);
+    });
   });
-});
 
 // Database connection
 const connectDB = async () => {

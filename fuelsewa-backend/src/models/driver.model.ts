@@ -38,6 +38,10 @@ export interface IDriver extends Document {
     phone: string;
     relation: string;
   };
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
   isActive: boolean;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
@@ -107,6 +111,10 @@ const driverSchema = new Schema<IDriver>(
       name: { type: String, required: [true, "Emergency contact name is required"], trim: true },
       phone: { type: String, required: [true, "Emergency contact phone is required"], trim: true },
       relation: { type: String, required: [true, "Emergency contact relation is required"], trim: true },
+    },
+    location: {
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
     },
     isActive: { type: Boolean, default: true },
   },
