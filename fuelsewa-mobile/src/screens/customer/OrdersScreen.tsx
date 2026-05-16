@@ -4,7 +4,8 @@ import {
   RefreshControl, ActivityIndicator, Modal, ScrollView, TextInput, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons as Icon } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import api from "../../api/axios";
 import { Colors } from "../../theme/colors";
 
@@ -31,9 +32,12 @@ interface Order {
     longitude: number;
   };
   assignedDriverId: {
+    _id: string;
     firstName: string;
     lastName: string;
     contactNumber: string;
+    location?: { latitude: number; longitude: number };
+    vehicleInfo?: { vehicleNumber: string; vehicleModel: string };
   } | null;
   estimatedDeliveryMinutes: number | null;
   createdAt: string;
@@ -60,6 +64,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClose: () => void; onCancelled: () => void }) {
+  const navigation = useNavigation();
   const [showCancelInput, setShowCancelInput] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
@@ -170,6 +175,21 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
             </View>
           ) : null}
 
+          {/* Track Order Button — for accepted/in_progress orders */}
+          {["accepted", "in_progress"].includes(order.status) && (
+            <TouchableOpacity
+              style={styles.trackBtn}
+              onPress={() => {
+                onClose();
+                // @ts-ignore
+                navigation.navigate("Tabs", { screen: "Track", params: { orderId: order._id } });
+              }}
+            >
+              <Icon name="map" size={18} color={Colors.white} />
+              <Text style={styles.trackBtnText}>Track Live Order</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Pricing */}
           <View style={styles.detailCard}>
             <Text style={styles.detailCardTitle}>Price Breakdown</Text>
@@ -278,6 +298,7 @@ function PricingRow({ label, value, highlight, total }: { label: string; value: 
 }
 
 export default function OrdersScreen() {
+  const navigation = useNavigation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -328,6 +349,18 @@ export default function OrdersScreen() {
           <StatusBadge status={item.status} />
         </View>
       </View>
+      {["accepted", "in_progress"].includes(item.status) && (
+        <TouchableOpacity
+          style={styles.cardTrackBtn}
+          onPress={() => {
+            // @ts-ignore
+            navigation.navigate("Tabs", { screen: "Track", params: { orderId: item._id } });
+          }}
+        >
+          <Icon name="map" size={14} color={Colors.primary} />
+          <Text style={styles.cardTrackBtnText}>Track Driver</Text>
+        </TouchableOpacity>
+      )}
       {item.isEmergency && (
         <View style={styles.emergencyStrip}>
           <Icon name="warning" size={12} color="#DC2626" />
@@ -526,4 +559,18 @@ const styles = StyleSheet.create({
     paddingVertical: 11, alignItems: "center",
   },
   cancelConfirmText: { fontSize: 14, fontWeight: "700", color: Colors.white },
+  
+  trackBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: Colors.black, borderRadius: 14, paddingVertical: 14,
+    marginBottom: 10,
+  },
+  trackBtnText: { color: Colors.white, fontSize: 15, fontWeight: "700" },
+  
+  cardTrackBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    borderTopWidth: 1, borderTopColor: Colors.gray100,
+    paddingVertical: 10,
+  },
+  cardTrackBtnText: { fontSize: 13, color: Colors.primary, fontWeight: "700" },
 });

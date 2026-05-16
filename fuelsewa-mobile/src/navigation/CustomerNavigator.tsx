@@ -1,7 +1,7 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons as Icon } from "@expo/vector-icons";
 import HomeScreen from "../screens/customer/HomeScreen";
 import OrdersScreen from "../screens/customer/OrdersScreen";
 import TrackScreen from "../screens/customer/TrackScreen";

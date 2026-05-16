@@ -117,7 +117,7 @@ export const getMyOrders = async (req: AuthRequest, res: Response): Promise<void
   try {
     const orders = await Order.find({ userId: req.user!.id })
       .sort({ createdAt: -1 })
-      .populate("assignedDriverId", "firstName lastName contactNumber");
+      .populate("assignedDriverId", "firstName lastName contactNumber location vehicleInfo");
     res.status(200).json({ success: true, count: orders.length, data: orders });
   } catch (error: any) {
     res.status(500).json({ success: false, message: "Internal server error", error: error.message });
@@ -128,7 +128,7 @@ export const getOrderById = async (req: AuthRequest, res: Response): Promise<voi
   try {
     const order = await Order.findById(req.params.id)
       .populate("userId", "firstName lastName email phone")
-      .populate("assignedDriverId", "firstName lastName contactNumber");
+      .populate("assignedDriverId", "firstName lastName contactNumber location vehicleInfo");
 
     if (!order) {
       res.status(404).json({ success: false, message: "Order not found" });
