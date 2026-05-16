@@ -28,6 +28,7 @@ export interface IOrder extends Document {
   priority: Priority;
   isEmergency: boolean;
   assignedDriverId: mongoose.Types.ObjectId | null;
+  cancelReason?: string;
   estimatedDeliveryMinutes: number | null;
   createdAt: Date;
   updatedAt: Date;
@@ -62,6 +63,7 @@ const orderSchema = new Schema<IOrder>(
       required: [true, "Request source is required"],
     },
     note: { type: String, trim: true, default: "" },
+    cancelReason: { type: String, trim: true, default: "" },
     pricing: {
       pricePerLiter: { type: Number, required: true },
       fuelCost: { type: Number, required: true },

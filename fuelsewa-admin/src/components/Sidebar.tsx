@@ -76,7 +76,6 @@ export default function Sidebar() {
                   : "text-surface-400 hover:bg-white/[0.04] hover:text-surface-200"
               }`
             }
-            data-tooltip={collapsed ? link.label : undefined}
           >
             <FontAwesomeIcon
               icon={link.icon}
@@ -114,7 +113,6 @@ export default function Sidebar() {
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center py-2 rounded-lg text-surface-500 hover:text-red-400 hover:bg-red-500/[0.08] transition-all duration-200"
-            data-tooltip="Sign out"
           >
             <FontAwesomeIcon icon={faRightFromBracket} className="text-sm" />
           </button>

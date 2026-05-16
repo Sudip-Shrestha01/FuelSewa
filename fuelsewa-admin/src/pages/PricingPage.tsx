@@ -10,6 +10,7 @@ interface Pricing {
   dieselPricePerLiter: number;
   baseFeePerKm: number;
   emergencyFee: number;
+  minimumDeliveryFee: number;
   updatedAt: string;
 }
 
@@ -38,7 +39,13 @@ export default function PricingPage() {
     if (!pricing) return;
     setSaving(true);
     try {
-      await api.put(`/pricing/${pricing._id}`, form);
+      await api.put("/pricing", {
+        petrolPricePerLiter: form.petrolPricePerLiter,
+        dieselPricePerLiter: form.dieselPricePerLiter,
+        baseFeePerKm: form.baseFeePerKm,
+        emergencyFee: form.emergencyFee,
+        minimumDeliveryFee: form.minimumDeliveryFee,
+      });
       await fetchPricing();
       setEditMode(false);
     } finally {
@@ -101,6 +108,7 @@ export default function PricingPage() {
               { label: "Diesel Price", key: "dieselPricePerLiter", unit: "per liter" },
               { label: "Base Delivery Fee", key: "baseFeePerKm", unit: "per KM" },
               { label: "Emergency Surcharge", key: "emergencyFee", unit: "fixed rate" },
+              { label: "Minimum Delivery Fee", key: "minimumDeliveryFee", unit: "fixed minimum" },
             ].map((item) => (
               <div key={item.key} className="px-6 py-5 flex items-center justify-between group hover:bg-surface-50/30 transition-colors">
                 <div>
