@@ -99,6 +99,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Block inactive drivers from logging in
+    if (source === "driver" && account.isActive === false) {
+      res.status(403).json({ success: false, message: "Your account has been deactivated. Please contact admin." });
+      return;
+    }
+
     const isMatch = await account.comparePassword(password);
     if (!isMatch) {
       res.status(401).json({ success: false, message: "Invalid email or password" });

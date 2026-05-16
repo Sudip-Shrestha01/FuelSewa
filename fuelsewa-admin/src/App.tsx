@@ -5,6 +5,9 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import OrdersPage from "./pages/OrdersPage";
 import DriversPage from "./pages/DriversPage";
+import CreateDriverPage from "./pages/CreateDriverPage";
+import CustomersPage from "./pages/CustomersPage";
+import PricingPage from "./pages/PricingPage";
 
 export default function App() {
   return (
@@ -22,7 +25,18 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="drivers" element={<DriversPage />} />
+          <Route path="customers" element={<CustomersPage />} />
+          <Route path="pricing" element={<PricingPage />} />
         </Route>
+        {/* Full screen — outside layout */}
+        <Route
+          path="/drivers/create"
+          element={
+            <ProtectedRoute>
+              <CreateDriverPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
