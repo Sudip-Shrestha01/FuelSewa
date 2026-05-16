@@ -31,9 +31,9 @@ const getDistanceKm = (
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-// Depot coordinates (configurable — Kathmandu center for now)
-const DEPOT_LAT = 27.7172;
-const DEPOT_LON = 85.324;
+// Office/Depot coordinates
+const DEPOT_LAT = 27.67477767844391;
+const DEPOT_LON = 85.26052936741475;
 
 export const createOrder = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -115,7 +115,9 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
 
 export const getMyOrders = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const orders = await Order.find({ userId: req.user!.id }).sort({ createdAt: -1 });
+    const orders = await Order.find({ userId: req.user!.id })
+      .sort({ createdAt: -1 })
+      .populate("assignedDriverId", "firstName lastName contactNumber");
     res.status(200).json({ success: true, count: orders.length, data: orders });
   } catch (error: any) {
     res.status(500).json({ success: false, message: "Internal server error", error: error.message });
@@ -154,6 +156,7 @@ export const getAllOrders = async (req: AuthRequest, res: Response): Promise<voi
 
 export const cancelOrder = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const { cancelReason } = req.body;
     const order = await Order.findOne({ _id: req.params.id, userId: req.user!.id });
 
     if (!order) {
@@ -167,6 +170,7 @@ export const cancelOrder = async (req: AuthRequest, res: Response): Promise<void
     }
 
     order.status = "cancelled";
+    order.cancelReason = cancelReason?.trim() || "";
     await order.save();
 
     res.status(200).json({ success: true, message: "Order cancelled successfully", data: order });

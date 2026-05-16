@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faEye, faUserPlus, faGasPump, faBoxes,
-  faLocationDot, faUser, faNoteSticky, faCircleCheck,
+  faLocationDot, faUser, faNoteSticky, faCircleCheck, faBan,
 } from "@fortawesome/free-solid-svg-icons";
 import api from "../api/axios";
 import PageLoader from "../components/ui/PageLoader";
@@ -15,7 +15,7 @@ interface Customer { _id: string; firstName: string; lastName: string; email: st
 interface Driver { _id: string; firstName: string; lastName: string; contactNumber: string; vehicleInfo: { vehicleNumber: string; vehicleType: string; vehicleModel: string }; }
 interface Order {
   _id: string; fuelType: string; quantity: number; status: string; isEmergency: boolean; priority: string;
-  requestSource: string; note: string;
+  requestSource: string; note: string; cancelReason?: string;
   pricing: { pricePerLiter: number; fuelCost: number; deliveryFee: number; emergencyFee: number; totalPrice: number; };
   deliveryLocation: { address: string; landmark: string; latitude: number; longitude: number };
   userId: Customer | null; assignedDriverId: Driver | null; estimatedDeliveryMinutes: number | null; createdAt: string;
@@ -92,6 +92,7 @@ export default function OrdersPage() {
           <InfoSection title="Location" icon={faLocationDot}><p className="text-sm font-medium text-surface-600">{sel.deliveryLocation.address}</p>{sel.deliveryLocation.landmark&&<p className="text-xs text-surface-600 mt-0.5">{sel.deliveryLocation.landmark}</p>}</InfoSection>
           <InfoSection title="Pricing"><div className="space-y-2 text-sm"><div className="flex justify-between text-surface-600"><span>Fuel Cost</span><span>Rs. {sel.pricing.fuelCost}</span></div><div className="flex justify-between text-surface-600"><span>Delivery Fee</span><span>Rs. {sel.pricing.deliveryFee}</span></div>{sel.pricing.emergencyFee>0&&<div className="flex justify-between text-danger-500"><span>Emergency Fee</span><span>Rs. {sel.pricing.emergencyFee}</span></div>}<div className="flex justify-between font-semibold text-surface-950 border-t border-surface-200 pt-2 mt-1"><span>Total</span><span>Rs. {sel.pricing.totalPrice}</span></div></div></InfoSection>
           {sel.note&&<InfoSection title="Note" icon={faNoteSticky} variant="warning"><p className="text-sm text-surface-600">{sel.note}</p></InfoSection>}
+          {sel.status==="cancelled"&&<InfoSection title="Cancellation Reason" icon={faBan} variant="danger"><p className="text-sm text-surface-600">{sel.cancelReason||<span className="text-surface-400 italic">No reason provided</span>}</p></InfoSection>}
           {sel.assignedDriverId&&<InfoSection title="Assigned Driver" icon={faCircleCheck} variant="success"><p className="font-semibold text-surface-600">{sel.assignedDriverId.firstName} {sel.assignedDriverId.lastName}</p><p className="text-sm text-surface-600">{sel.assignedDriverId.contactNumber}</p><p className="text-xs text-surface-600 mt-0.5">{sel.assignedDriverId.vehicleInfo?.vehicleModel} · {sel.assignedDriverId.vehicleInfo?.vehicleNumber}</p></InfoSection>}
           {sel.status==="pending"&&<button onClick={() => setShowAssign(true)} className="w-full bg-surface-900 hover:bg-surface-800 text-white font-medium py-3 rounded-xl transition-all duration-200 text-sm flex items-center justify-center gap-2 active:scale-[0.98]"><FontAwesomeIcon icon={faUserPlus}/>Assign Driver</button>}
         </div>}
