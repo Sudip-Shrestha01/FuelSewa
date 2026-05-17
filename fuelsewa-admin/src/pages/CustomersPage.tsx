@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser, faPhone, faEnvelope, faCalendar, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faEnvelope, faCalendar, faUsers } from "@fortawesome/free-solid-svg-icons";
 import api from "../api/axios";
 import PageLoader from "../components/ui/PageLoader";
 import Badge from "../components/ui/Badge";

@@ -61,7 +61,8 @@ export default function CreateDriverPage() {
     citizenshipNumber: "", licenseNumber: "", licenseExpiryDate: "",
     userAddress: { district: "", state: "", localLevel: "", streetAddress: "" },
     vehicleInfo: { vehicleNumber: "", vehicleType: "truck", vehicleModel: "" },
-    emergencyContact: { name: "", phone: "", relation: "" }
+    emergencyContact: { name: "", phone: "", relation: "" },
+    location: { latitude: "", longitude: "" }
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -224,6 +225,15 @@ export default function CreateDriverPage() {
             <FormField label="Full Name" required value={form.emergencyContact.name} onChange={(v) => updateForm("emergencyContact.name", v)} />
             <FormField label="Phone" required value={form.emergencyContact.phone} onChange={(v) => updateForm("emergencyContact.phone", v)} />
             <FormField label="Relation" required value={form.emergencyContact.relation} onChange={(v) => updateForm("emergencyContact.relation", v)} />
+          </div>
+        </section>
+
+        {/* Section: Location */}
+        <section className="space-y-6 pt-6 border-t border-surface-100">
+          <h2 className="text-sm font-bold text-surface-950 uppercase tracking-wider">Initial Location</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField label="Latitude" type="number" required value={form.location.latitude} onChange={(v) => updateForm("location.latitude", v)} />
+            <FormField label="Longitude" type="number" required value={form.location.longitude} onChange={(v) => updateForm("location.longitude", v)} />
           </div>
         </section>
       </form>

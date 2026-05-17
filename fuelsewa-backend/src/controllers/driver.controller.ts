@@ -23,6 +23,7 @@ export const addDriver = async (req: Request, res: Response): Promise<void> => {
       licensePhoto,
       vehicleInfo,
       emergencyContact,
+      location,
     } = req.body;
 
     // Validate required fields
@@ -108,6 +109,7 @@ export const addDriver = async (req: Request, res: Response): Promise<void> => {
       licensePhoto,
       vehicleInfo,
       emergencyContact,
+      location,
     });
 
     res.status(201).json({

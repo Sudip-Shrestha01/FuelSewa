@@ -20,7 +20,9 @@ interface Driver {
   citizenshipNumber: string; licenseNumber: string; licenseExpiryDate: string; isActive: boolean;
   userAddress: { district: string; state: string; localLevel: string; streetAddress: string };
   vehicleInfo: { vehicleNumber: string; vehicleType: string; vehicleModel: string };
-  emergencyContact: { name: string; phone: string; relation: string }; createdAt: string;
+  emergencyContact: { name: string; phone: string; relation: string }; 
+  location?: { latitude: number; longitude: number };
+  createdAt: string;
 }
 
 const PAGE_SIZE = 10;
@@ -134,7 +136,7 @@ export default function DriversPage() {
                         {driver.isActive ? "Deactivate" : "Activate"}
                       </button>
                       <button
-                        onClick={() => { setEditDriver(driver); setEditForm({ firstName:driver.firstName, middleName:driver.middleName, lastName:driver.lastName, contactNumber:driver.contactNumber, licenseNumber:driver.licenseNumber, vehicleInfo:driver.vehicleInfo, emergencyContact:driver.emergencyContact }); }}
+                        onClick={() => { setEditDriver(driver); setEditForm({ firstName:driver.firstName, middleName:driver.middleName, lastName:driver.lastName, contactNumber:driver.contactNumber, licenseNumber:driver.licenseNumber, vehicleInfo:driver.vehicleInfo, emergencyContact:driver.emergencyContact, location:driver.location }); }}
                         className="w-7 h-7 rounded-lg hover:bg-info-50 flex items-center justify-center text-info-500 transition-all duration-150"
                       >
                         <FontAwesomeIcon icon={faPenToSquare} className="text-[11px]" />
@@ -197,6 +199,12 @@ export default function DriversPage() {
             <div className="grid grid-cols-2 gap-3">
               {[{l:"Name",k:"name"},{l:"Phone",k:"phone"},{l:"Relation",k:"relation"}].map(({l,k})=>(
                 <div key={k}><label className="block text-xs font-medium text-surface-600 mb-1.5">{l}</label><input type="text" value={(editForm.emergencyContact as any)?.[k]??""} onChange={e=>setEditForm(p=>({...p,emergencyContact:{...(p.emergencyContact as any),[k]:e.target.value}}))} className="w-full bg-surface-50 border border-surface-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 focus:bg-white transition-all"/></div>
+              ))}
+            </div>
+            <p className="text-[11px] font-semibold text-surface-400 uppercase tracking-wider pt-1">Location</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[{l:"Latitude",k:"latitude"},{l:"Longitude",k:"longitude"}].map(({l,k})=>(
+                <div key={k}><label className="block text-xs font-medium text-surface-600 mb-1.5">{l}</label><input type="number" step="any" value={(editForm.location as any)?.[k]??""} onChange={e=>setEditForm(p=>({...p,location:{...(p.location as any),[k]:Number(e.target.value)}}))} className="w-full bg-surface-50 border border-surface-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 focus:bg-white transition-all"/></div>
               ))}
             </div>
           </div>

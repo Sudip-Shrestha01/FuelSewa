@@ -31,7 +31,7 @@ export default function Sidebar() {
     <aside
       className={`${
         collapsed ? "w-[72px]" : "w-[260px]"
-      } min-h-screen bg-surface-950 flex flex-col transition-all duration-300 ease-in-out relative select-none`}
+      } h-screen sticky top-0 bg-surface-950 flex flex-col transition-all duration-300 ease-in-out select-none z-20`}
     >
       {/* Collapse toggle */}
       <button

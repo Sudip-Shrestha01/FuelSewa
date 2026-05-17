@@ -279,9 +279,6 @@ export default function DispatchMapPage() {
             <FontAwesomeIcon icon={faMapLocationDot} className="text-primary-500" />
             Dispatch Map
           </h1>
-          <p className="text-sm text-surface-500 mt-1">
-            A* optimized driver assignment with real-time route preview
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
