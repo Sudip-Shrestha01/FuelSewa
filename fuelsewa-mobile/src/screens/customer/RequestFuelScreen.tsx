@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -6,27 +6,39 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons as Icon } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import Toast from "react-native-toast-message";
 import api from "../../api/axios";
 import { Colors } from "../../theme/colors";
+
+// Kathmandu Valley bounding box
+const SERVICE_AREA = { minLat: 27.62, maxLat: 27.81, minLon: 85.24, maxLon: 85.52 };
+const isInsideServiceArea = (lat: number, lon: number) =>
+  lat >= SERVICE_AREA.minLat && lat <= SERVICE_AREA.maxLat &&
+  lon >= SERVICE_AREA.minLon && lon <= SERVICE_AREA.maxLon;
 
 interface Pricing {
   petrolPricePerLiter: number;
   dieselPricePerLiter: number;
-  deliveryFee: number;
   emergencyFee: number;
   minimumDeliveryFee: number;
 }
 
+interface Suggestion {
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
 const FUEL_TYPES = [
-  { key: "petrol", label: "Petrol", icon: "local-gas-station", color: "#EA580C", bg: "#FFF7ED" },
-  { key: "diesel", label: "Diesel", icon: "local-gas-station", color: Colors.primary, bg: "#F0FDF4" },
+  { key: "petrol", label: "Petrol", color: "#EA580C", bg: "#FFF7ED" },
+  { key: "diesel", label: "Diesel", color: Colors.primary, bg: "#F0FDF4" },
 ];
 
 const SOURCES = [
-  { key: "roadside", label: "Roadside", icon: "warning" },
-  { key: "home", label: "Home", icon: "home" },
-  { key: "office", label: "Office", icon: "business" },
-  { key: "other", label: "Other", icon: "place" },
+  { key: "roadside", label: "Roadside", icon: "warning" as const },
+  { key: "home", label: "Home", icon: "home" as const },
+  { key: "office", label: "Office", icon: "business" as const },
+  { key: "other", label: "Other", icon: "place" as const },
 ];
 
 export default function RequestFuelScreen({ navigation }: any) {
@@ -40,6 +52,9 @@ export default function RequestFuelScreen({ navigation }: any) {
   const [locating, setLocating] = useState(false);
   const [pricing, setPricing] = useState<Pricing | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     api.get("/pricing").then((res) => setPricing(res.data.data)).catch(() => {});
@@ -54,19 +69,100 @@ export default function RequestFuelScreen({ navigation }: any) {
         Alert.alert("Permission denied", "Location permission is needed to detect your position.");
         return;
       }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
       const { latitude, longitude } = loc.coords;
+
+      if (!isInsideServiceArea(latitude, longitude)) {
+        Toast.show({
+          type: "error",
+          text1: "Outside Service Area",
+          text2: "FuelSewa is available only in Kathmandu, Bhaktapur, and Lalitpur.",
+          visibilityTime: 5000,
+          position: "top",
+        });
+        return;
+      }
+
       setCoords({ latitude, longitude });
-      const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (place) {
-        const parts = [place.street, place.district, place.city, place.region].filter(Boolean);
-        setAddress(parts.join(", "));
+
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&zoom=18`,
+          { headers: { "Accept-Language": "en", "User-Agent": "FuelSewa/1.0" } }
+        );
+        const data = await res.json();
+        if (data?.address) {
+          const a = data.address;
+          const parts = [
+            a.house_number ? `${a.house_number} ${a.road || ""}`.trim() : (a.road || a.pedestrian || a.footway),
+            a.building || a.amenity || a.shop,
+            a.neighbourhood || a.suburb || a.quarter,
+            a.city || a.town || a.village || a.municipality,
+          ].filter(Boolean);
+          setAddress(parts.length >= 2 ? parts.join(", ") : data.display_name?.split(",").slice(0, 4).join(",").trim() || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        }
+      } catch {
+        setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
       }
     } catch {
       Alert.alert("Error", "Could not detect location. Please enter manually.");
     } finally {
       setLocating(false);
     }
+  };
+
+  const searchAddress = (text: string) => {
+    setAddress(text);
+    setSuggestions([]);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (text.trim().length < 3) return;
+    searchTimeout.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        // Use Nominatim with Nepal country filter and Kathmandu Valley viewbox
+        // Remove bounded=1 so it still returns results if exact match not in box
+        const query = encodeURIComponent(text.trim());
+        const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=7&countrycodes=np&viewbox=85.24,27.62,85.52,27.81&accept-language=en`;
+
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "User-Agent": "FuelSewa Mobile App/1.0 (fuelsewa@gmail.com)",
+            "Accept": "application/json",
+          },
+        });
+
+        if (!res.ok) {
+          setSuggestions([]);
+          return;
+        }
+
+        const data = await res.json();
+        setSuggestions(Array.isArray(data) ? data.slice(0, 6) : []);
+      } catch (err) {
+        setSuggestions([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 600);
+  };
+
+  const selectSuggestion = (item: Suggestion) => {
+    const lat = parseFloat(item.lat);
+    const lon = parseFloat(item.lon);
+    if (!isInsideServiceArea(lat, lon)) {
+      Toast.show({
+        type: "error",
+        text1: "Outside Service Area",
+        text2: "FuelSewa is available only in Kathmandu, Bhaktapur, and Lalitpur.",
+        visibilityTime: 4000,
+        position: "top",
+      });
+      return;
+    }
+    setAddress(item.display_name.split(",").slice(0, 4).join(",").trim());
+    setCoords({ latitude: lat, longitude: lon });
+    setSuggestions([]);
   };
 
   const pricePerLiter = pricing
@@ -78,33 +174,20 @@ export default function RequestFuelScreen({ navigation }: any) {
   const totalPrice = fuelCost + deliveryFee + emergencyFee;
 
   const handleSubmit = async () => {
-    if (!address.trim()) {
-      Alert.alert("Location required", "Please detect or enter your delivery address.");
-      return;
-    }
-    if (!coords) {
-      Alert.alert("Location required", "Please allow location access or enter coordinates.");
+    if (!address.trim()) { Alert.alert("Location required", "Please detect or enter your delivery address."); return; }
+    if (!coords) { Alert.alert("Location required", "Please allow location access or enter coordinates."); return; }
+    if (!isInsideServiceArea(coords.latitude, coords.longitude)) {
+      Toast.show({ type: "error", text1: "Outside Service Area", text2: "FuelSewa is available only in Kathmandu, Bhaktapur, and Lalitpur.", visibilityTime: 5000, position: "top" });
       return;
     }
     setSubmitting(true);
     try {
       await api.post("/orders", {
-        fuelType,
-        quantity,
-        deliveryLocation: {
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          address: address.trim(),
-          landmark: landmark.trim(),
-        },
-        requestSource,
-        note: note.trim(),
+        fuelType, quantity,
+        deliveryLocation: { latitude: coords.latitude, longitude: coords.longitude, address: address.trim(), landmark: landmark.trim() },
+        requestSource, note: note.trim(),
       });
-      Alert.alert(
-        "Order Placed!",
-        "Your fuel request has been submitted. Admin will assign a driver shortly.",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
+      Alert.alert("Order Placed!", "Your fuel request has been submitted. Admin will assign a driver shortly.", [{ text: "OK", onPress: () => navigation.goBack() }]);
     } catch (err: any) {
       Alert.alert("Error", err.response?.data?.message || "Failed to place order. Try again.");
     } finally {
@@ -113,319 +196,225 @@ export default function RequestFuelScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={22} color={Colors.black} />
-          </TouchableOpacity>
-          <View>
-            <Text style={styles.headerTitle}>Request Fuel</Text>
-            <Text style={styles.headerSub}>Fill in the details below</Text>
+    <>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <Icon name="arrow-back" size={22} color={Colors.black} />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.headerTitle}>Request Fuel</Text>
+              <Text style={styles.headerSub}>Fill in the details below</Text>
+            </View>
           </View>
-        </View>
 
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Fuel Type */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Fuel Type</Text>
-            <View style={styles.fuelRow}>
-              {FUEL_TYPES.map((f) => (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[styles.fuelCard, fuelType === f.key && { borderColor: f.color, borderWidth: 2 }]}
-                  onPress={() => setFuelType(f.key as "petrol" | "diesel")}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.fuelIconBox, { backgroundColor: f.bg }]}>
-                    <Icon name={f.icon} size={26} color={f.color} />
-                  </View>
-                  <Text style={[styles.fuelLabel, fuelType === f.key && { color: f.color }]}>{f.label}</Text>
-                  {pricing && (
-                    <Text style={styles.fuelPrice}>
-                      Rs. {f.key === "petrol" ? pricing.petrolPricePerLiter : pricing.dieselPricePerLiter}/L
-                    </Text>
-                  )}
-                  {fuelType === f.key && (
-                    <View style={[styles.fuelCheck, { backgroundColor: f.color }]}>
-                      <Icon name="check" size={12} color={Colors.white} />
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+            {/* Fuel Type */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Fuel Type</Text>
+              <View style={styles.fuelRow}>
+                {FUEL_TYPES.map((f) => (
+                  <TouchableOpacity key={f.key} style={[styles.fuelCard, fuelType === f.key && { borderColor: f.color, borderWidth: 2 }]} onPress={() => setFuelType(f.key as "petrol" | "diesel")} activeOpacity={0.8}>
+                    <View style={[styles.fuelIconBox, { backgroundColor: f.bg }]}>
+                      <Icon name="local-gas-station" size={26} color={f.color} />
                     </View>
-                  )}
+                    <Text style={[styles.fuelLabel, fuelType === f.key && { color: f.color }]}>{f.label}</Text>
+                    {pricing && <Text style={styles.fuelPrice}>Rs. {f.key === "petrol" ? pricing.petrolPricePerLiter : pricing.dieselPricePerLiter}/L</Text>}
+                    {fuelType === f.key && <View style={[styles.fuelCheck, { backgroundColor: f.color }]}><Icon name="check" size={12} color={Colors.white} /></View>}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Quantity */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Quantity (Liters)</Text>
+              <View style={styles.quantityRow}>
+                <TouchableOpacity style={[styles.qtyBtn, quantity <= 1 && styles.qtyBtnDisabled]} onPress={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1}>
+                  <Icon name="remove" size={20} color={quantity <= 1 ? Colors.gray300 : Colors.black} />
                 </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Quantity */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Quantity (Liters)</Text>
-            <View style={styles.quantityRow}>
-              <TouchableOpacity
-                style={[styles.qtyBtn, quantity <= 1 && styles.qtyBtnDisabled]}
-                onPress={() => setQuantity((q) => Math.max(1, q - 1))}
-                disabled={quantity <= 1}
-              >
-                <Icon name="remove" size={20} color={quantity <= 1 ? Colors.gray300 : Colors.black} />
-              </TouchableOpacity>
-              <View style={styles.qtyDisplay}>
-                <Text style={styles.qtyValue}>{quantity}</Text>
-                <Text style={styles.qtyUnit}>liters</Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.qtyBtn, quantity >= 20 && styles.qtyBtnDisabled]}
-                onPress={() => setQuantity((q) => Math.min(20, q + 1))}
-                disabled={quantity >= 20}
-              >
-                <Icon name="add" size={20} color={quantity >= 20 ? Colors.gray300 : Colors.black} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.qtySliderRow}>
-              {[1, 2, 3, 4, 5, 10, 15, 20].map((v) => (
-                <TouchableOpacity
-                  key={v}
-                  style={[styles.qtyChip, quantity === v && styles.qtyChipActive]}
-                  onPress={() => setQuantity(v)}
-                >
-                  <Text style={[styles.qtyChipText, quantity === v && styles.qtyChipTextActive]}>{v}L</Text>
+                <View style={styles.qtyDisplay}>
+                  <Text style={styles.qtyValue}>{quantity}</Text>
+                  <Text style={styles.qtyUnit}>liters</Text>
+                </View>
+                <TouchableOpacity style={[styles.qtyBtn, quantity >= 20 && styles.qtyBtnDisabled]} onPress={() => setQuantity((q) => Math.min(20, q + 1))} disabled={quantity >= 20}>
+                  <Icon name="add" size={20} color={quantity >= 20 ? Colors.gray300 : Colors.black} />
                 </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Request Source */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Request Source</Text>
-            <View style={styles.sourceGrid}>
-              {SOURCES.map((s) => (
-                <TouchableOpacity
-                  key={s.key}
-                  style={[styles.sourceCard, requestSource === s.key && styles.sourceCardActive]}
-                  onPress={() => setRequestSource(s.key)}
-                  activeOpacity={0.8}
-                >
-                  <Icon
-                    name={s.icon}
-                    size={20}
-                    color={requestSource === s.key ? Colors.primary : Colors.gray400}
-                  />
-                  <Text style={[styles.sourceLabel, requestSource === s.key && styles.sourceLabelActive]}>
-                    {s.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {requestSource === "roadside" && (
-              <View style={styles.emergencyNote}>
-                <Icon name="warning" size={14} color="#D97706" />
-                <Text style={styles.emergencyNoteText}>Emergency fee of Rs. {pricing?.emergencyFee ?? 10} applies</Text>
               </View>
-            )}
-          </View>
-
-          {/* Delivery Location */}
-          <View style={styles.section}>
-            <View style={styles.sectionLabelRow}>
-              <Text style={styles.sectionLabel}>Delivery Location</Text>
-              <TouchableOpacity style={styles.detectBtn} onPress={detectLocation} disabled={locating}>
-                {locating
-                  ? <ActivityIndicator size="small" color={Colors.primary} />
-                  : <><Icon name="my-location" size={14} color={Colors.primary} /><Text style={styles.detectText}> Detect</Text></>
-                }
-              </TouchableOpacity>
-            </View>
-            <View style={styles.inputBox}>
-              <Icon name="location-on" size={18} color={Colors.gray400} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Your delivery address"
-                placeholderTextColor={Colors.gray400}
-                value={address}
-                onChangeText={setAddress}
-                multiline
-              />
-            </View>
-            <View style={[styles.inputBox, { marginTop: 10 }]}>
-              <Icon name="place" size={18} color={Colors.gray400} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Landmark (optional)"
-                placeholderTextColor={Colors.gray400}
-                value={landmark}
-                onChangeText={setLandmark}
-              />
-            </View>
-            {coords && (
-              <Text style={styles.coordsText}>
-                📍 {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
-              </Text>
-            )}
-          </View>
-
-          {/* Note */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Note <Text style={styles.optional}>(optional)</Text></Text>
-            <View style={styles.inputBox}>
-              <TextInput
-                style={[styles.input, styles.noteInput]}
-                placeholder="e.g. Bike stopped near petrol pump road"
-                placeholderTextColor={Colors.gray400}
-                value={note}
-                onChangeText={setNote}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
-          </View>
-
-          {/* Price Summary */}
-          {pricing && (
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Price Summary</Text>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryKey}>Fuel Cost ({quantity}L × Rs. {pricePerLiter})</Text>
-                <Text style={styles.summaryVal}>Rs. {fuelCost}</Text>
+              <View style={styles.qtySliderRow}>
+                {[1, 2, 3, 4, 5, 10, 15, 20].map((v) => (
+                  <TouchableOpacity key={v} style={[styles.qtyChip, quantity === v && styles.qtyChipActive]} onPress={() => setQuantity(v)}>
+                    <Text style={[styles.qtyChipText, quantity === v && styles.qtyChipTextActive]}>{v}L</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryKey}>Delivery Fee</Text>
-                <Text style={styles.summaryVal}>Rs. {deliveryFee}</Text>
+            </View>
+
+            {/* Request Source */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Request Source</Text>
+              <View style={styles.sourceGrid}>
+                {SOURCES.map((s) => (
+                  <TouchableOpacity key={s.key} style={[styles.sourceCard, requestSource === s.key && styles.sourceCardActive]} onPress={() => setRequestSource(s.key)} activeOpacity={0.8}>
+                    <Icon name={s.icon} size={20} color={requestSource === s.key ? Colors.primary : Colors.gray400} />
+                    <Text style={[styles.sourceLabel, requestSource === s.key && styles.sourceLabelActive]}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              {emergencyFee > 0 && (
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryKey, { color: "#D97706" }]}>Emergency Fee</Text>
-                  <Text style={[styles.summaryVal, { color: "#D97706" }]}>Rs. {emergencyFee}</Text>
+              {requestSource === "roadside" && (
+                <View style={styles.emergencyNote}>
+                  <Icon name="warning" size={14} color="#D97706" />
+                  <Text style={styles.emergencyNoteText}>Emergency fee of Rs. {pricing?.emergencyFee ?? 10} applies</Text>
                 </View>
               )}
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryTotal}>Total</Text>
-                <Text style={styles.summaryTotalVal}>Rs. {totalPrice}</Text>
+            </View>
+
+            {/* Delivery Location */}
+            <View style={styles.section}>
+              <View style={styles.sectionLabelRow}>
+                <Text style={styles.sectionLabel}>Delivery Location</Text>
+                <TouchableOpacity style={styles.detectBtn} onPress={detectLocation} disabled={locating}>
+                  {locating
+                    ? <ActivityIndicator size="small" color={Colors.primary} />
+                    : <><Icon name="my-location" size={14} color={Colors.primary} /><Text style={styles.detectText}> Detect</Text></>
+                  }
+                </TouchableOpacity>
+              </View>
+
+              {/* Search input */}
+              <View style={styles.inputBox}>
+                <Icon name="location-on" size={18} color={Colors.gray400} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Search or type your delivery address"
+                  placeholderTextColor={Colors.gray400}
+                  value={address}
+                  onChangeText={searchAddress}
+                  autoCorrect={false}
+                />
+                {searchLoading && <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 8 }} />}
+              </View>
+
+              {/* Suggestions */}
+              {suggestions.length > 0 && (
+                <View style={styles.suggestionsBox}>
+                  {suggestions.map((item, i) => (
+                    <TouchableOpacity
+                      key={`${item.lat}-${item.lon}-${i}`}
+                      style={[styles.suggestionItem, i < suggestions.length - 1 && styles.suggestionBorder]}
+                      onPress={() => selectSuggestion(item)}
+                      activeOpacity={0.6}
+                    >
+                      <Icon name="location-on" size={16} color={Colors.primary} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.suggestionText} numberOfLines={1}>
+                          {item.display_name.split(",")[0].trim()}
+                        </Text>
+                        <Text style={styles.suggestionSubText} numberOfLines={1}>
+                          {item.display_name.split(",").slice(1, 4).join(",").trim()}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Landmark */}
+              <View style={[styles.inputBox, { marginTop: 10 }]}>
+                <Icon name="place" size={18} color={Colors.gray400} style={styles.inputIcon} />
+                <TextInput style={styles.input} placeholder="Landmark (optional)" placeholderTextColor={Colors.gray400} value={landmark} onChangeText={setLandmark} />
+              </View>
+              {coords && <Text style={styles.coordsText}>📍 {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}</Text>}
+            </View>
+
+            {/* Note */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Note <Text style={styles.optional}>(optional)</Text></Text>
+              <View style={styles.inputBox}>
+                <TextInput style={[styles.input, styles.noteInput]} placeholder="e.g. Bike stopped near petrol pump road" placeholderTextColor={Colors.gray400} value={note} onChangeText={setNote} multiline numberOfLines={3} textAlignVertical="top" />
               </View>
             </View>
-          )}
 
-          {/* Submit */}
-          <TouchableOpacity
-            style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={submitting}
-            activeOpacity={0.85}
-          >
-            {submitting
-              ? <ActivityIndicator color={Colors.white} />
-              : <>
-                  <Icon name="local-gas-station" size={20} color={Colors.white} />
-                  <Text style={styles.submitText}>Place Order · Rs. {totalPrice}</Text>
-                </>
-            }
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            {/* Price Summary */}
+            {pricing && (
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Price Summary</Text>
+                <View style={styles.summaryRow}><Text style={styles.summaryKey}>Fuel Cost ({quantity}L × Rs. {pricePerLiter})</Text><Text style={styles.summaryVal}>Rs. {fuelCost}</Text></View>
+                <View style={styles.summaryRow}><Text style={styles.summaryKey}>Delivery Fee</Text><Text style={styles.summaryVal}>Rs. {deliveryFee}</Text></View>
+                {emergencyFee > 0 && <View style={styles.summaryRow}><Text style={[styles.summaryKey, { color: "#D97706" }]}>Emergency Fee</Text><Text style={[styles.summaryVal, { color: "#D97706" }]}>Rs. {emergencyFee}</Text></View>}
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryRow}><Text style={styles.summaryTotal}>Total</Text><Text style={styles.summaryTotalVal}>Rs. {totalPrice}</Text></View>
+              </View>
+            )}
+
+            {/* Submit */}
+            <TouchableOpacity style={[styles.submitBtn, submitting && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
+              {submitting
+                ? <ActivityIndicator color={Colors.white} />
+                : <><Icon name="local-gas-station" size={20} color={Colors.white} /><Text style={styles.submitText}>Place Order · Rs. {totalPrice}</Text></>
+              }
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+      <Toast />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.gray50 },
   flex: { flex: 1 },
-  header: {
-    flexDirection: "row", alignItems: "center", gap: 14,
-    paddingHorizontal: 20, paddingVertical: 14,
-    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.gray100,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 12,
-    backgroundColor: Colors.gray100, alignItems: "center", justifyContent: "center",
-  },
+  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingVertical: 14, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.gray100, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontWeight: "700", color: Colors.black },
   headerSub: { fontSize: 12, color: Colors.gray500, marginTop: 1 },
   scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
-
   section: { marginBottom: 24 },
   sectionLabel: { fontSize: 14, fontWeight: "700", color: Colors.gray700, marginBottom: 12 },
   sectionLabelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   optional: { fontWeight: "400", color: Colors.gray400 },
-
-  // Fuel type
   fuelRow: { flexDirection: "row", gap: 12 },
-  fuelCard: {
-    flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 16,
-    alignItems: "center", borderWidth: 1.5, borderColor: Colors.gray200,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
-    position: "relative",
-  },
+  fuelCard: { flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 16, alignItems: "center", borderWidth: 1.5, borderColor: Colors.gray200, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1, position: "relative" },
   fuelIconBox: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 8 },
   fuelLabel: { fontSize: 15, fontWeight: "700", color: Colors.black },
   fuelPrice: { fontSize: 12, color: Colors.gray500, marginTop: 3 },
-  fuelCheck: {
-    position: "absolute", top: 10, right: 10,
-    width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center",
-  },
-
-  // Quantity
+  fuelCheck: { position: "absolute", top: 10, right: 10, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   quantityRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20, marginBottom: 16 },
-  qtyBtn: {
-    width: 44, height: 44, borderRadius: 14, backgroundColor: Colors.white,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5, borderColor: Colors.gray200,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
-  },
+  qtyBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: Colors.white, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: Colors.gray200, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
   qtyBtnDisabled: { borderColor: Colors.gray100, backgroundColor: Colors.gray50 },
   qtyDisplay: { alignItems: "center", minWidth: 80 },
   qtyValue: { fontSize: 36, fontWeight: "800", color: Colors.black },
   qtyUnit: { fontSize: 12, color: Colors.gray400, marginTop: -2 },
   qtySliderRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  qtyChip: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.gray200,
-  },
+  qtyChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.gray200 },
   qtyChipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   qtyChipText: { fontSize: 13, fontWeight: "600", color: Colors.gray600 },
   qtyChipTextActive: { color: Colors.primary },
-
-  // Source
   sourceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  sourceCard: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
-    backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.gray200,
-  },
+  sourceCard: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.gray200 },
   sourceCardActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
   sourceLabel: { fontSize: 13, fontWeight: "600", color: Colors.gray600 },
   sourceLabelActive: { color: Colors.primary },
-  emergencyNote: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "#FFFBEB", borderRadius: 10, padding: 10, marginTop: 10,
-    borderWidth: 1, borderColor: "#FDE68A",
-  },
+  emergencyNote: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#FFFBEB", borderRadius: 10, padding: 10, marginTop: 10, borderWidth: 1, borderColor: "#FDE68A" },
   emergencyNoteText: { fontSize: 12, color: "#D97706", fontWeight: "500" },
-
-  // Location
   detectBtn: { flexDirection: "row", alignItems: "center" },
   detectText: { fontSize: 13, color: Colors.primary, fontWeight: "600" },
-  inputBox: {
-    flexDirection: "row", alignItems: "flex-start",
-    backgroundColor: Colors.white, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.gray200,
-    paddingHorizontal: 14, paddingVertical: 12,
-  },
-  inputIcon: { marginRight: 10, marginTop: 2 },
+  inputBox: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.white, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.gray200, paddingHorizontal: 14, paddingVertical: 12 },
+  inputIcon: { marginRight: 10 },
   input: { flex: 1, fontSize: 14, color: Colors.black, padding: 0 },
-  noteInput: { minHeight: 72 },
+  noteInput: { minHeight: 72, alignSelf: "stretch" },
   coordsText: { fontSize: 11, color: Colors.gray400, marginTop: 8, marginLeft: 4 },
-
-  // Summary
-  summaryCard: {
-    backgroundColor: Colors.white, borderRadius: 16, padding: 18, marginBottom: 20,
-    borderWidth: 1.5, borderColor: Colors.gray200,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
+  suggestionsBox: { backgroundColor: Colors.white, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.gray200, marginTop: 6, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 6 },
+  suggestionItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 13 },
+  suggestionBorder: { borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  suggestionText: { fontSize: 14, fontWeight: "600", color: Colors.gray800 },
+  suggestionSubText: { fontSize: 12, color: Colors.gray400, marginTop: 1 },
+  summaryCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 18, marginBottom: 20, borderWidth: 1.5, borderColor: Colors.gray200, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   summaryTitle: { fontSize: 14, fontWeight: "700", color: Colors.black, marginBottom: 14 },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   summaryKey: { fontSize: 13, color: Colors.gray600 },
@@ -433,13 +422,7 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: Colors.gray100, marginVertical: 10 },
   summaryTotal: { fontSize: 15, fontWeight: "700", color: Colors.black },
   summaryTotalVal: { fontSize: 16, fontWeight: "800", color: Colors.primary },
-
-  // Submit
-  submitBtn: {
-    backgroundColor: Colors.primary, borderRadius: 16, paddingVertical: 16,
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
-  },
+  submitBtn: { backgroundColor: Colors.primary, borderRadius: 16, paddingVertical: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
   submitBtnDisabled: { opacity: 0.6 },
   submitText: { color: Colors.white, fontSize: 16, fontWeight: "800" },
 });

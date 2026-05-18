@@ -11,10 +11,6 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.fuelsewa-mobile"
-    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -23,10 +19,30 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.fuelsewamobile"
+      "package": "com.anonymous.fuelsewamobile",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.fuelsewa-mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "FuelSewa needs your location to detect your delivery address.",
+        "NSLocationAlwaysUsageDescription": "FuelSewa needs your location to detect your delivery address."
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FuelSewa needs your location to detect your delivery address."
+        }
+      ]
+    ]
   }
 }
