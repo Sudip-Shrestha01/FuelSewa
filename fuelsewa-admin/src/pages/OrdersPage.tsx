@@ -10,6 +10,7 @@ import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import InfoSection from "../components/ui/InfoSection";
 import EmptyState from "../components/ui/EmptyState";
+import Pagination from "../components/ui/Pagination";
 
 interface Customer { _id: string; firstName: string; lastName: string; email: string; phone: string; }
 interface Driver { _id: string; firstName: string; lastName: string; contactNumber: string; vehicleInfo: { vehicleNumber: string; vehicleType: string; vehicleModel: string }; }
@@ -22,20 +23,27 @@ interface Order {
 }
 
 const BADGE_V: Record<string, "warning"|"info"|"violet"|"success"|"danger"> = { pending:"warning", accepted:"info", in_progress:"violet", delivered:"success", cancelled:"danger" };
+const PAGE_SIZE = 10;
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]); const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [loading, setLoading] = useState(true); const [activeTab, setActiveTab] = useState<"active"|"completed">("active");
+  const [loading, setLoading] = useState(true); const [activeTab, setActiveTab] = useState<"active"|"completed"|"cancelled">("active");
+  const [page, setPage] = useState(1);
   const [sel, setSel] = useState<Order|null>(null); const [showAssign, setShowAssign] = useState(false);
   const [driverId, setDriverId] = useState(""); const [estMin, setEstMin] = useState("");
   const [assigning, setAssigning] = useState(false); const [assignErr, setAssignErr] = useState("");
 
   const fetch = async () => { try { const [o,d] = await Promise.all([api.get("/admin/orders"),api.get("/admin/drivers")]); setOrders(o.data.data); setDrivers(d.data.data); } finally { setLoading(false); } };
   useEffect(() => { fetch(); }, []);
+  // Reset page when tab changes
+  useEffect(() => { setPage(1); }, [activeTab]);
 
   const active = orders.filter(o => !["delivered","cancelled"].includes(o.status));
-  const completed = orders.filter(o => ["delivered","cancelled"].includes(o.status));
-  const displayed = activeTab === "active" ? active : completed;
+  const completed = orders.filter(o => o.status === "delivered");
+  const cancelled = orders.filter(o => o.status === "cancelled");
+  const tabData = activeTab === "active" ? active : activeTab === "completed" ? completed : cancelled;
+  const totalPages = Math.max(1, Math.ceil(tabData.length / PAGE_SIZE));
+  const displayed = tabData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleAssign = async () => {
     if (!sel || !driverId) return; setAssigning(true); setAssignErr("");
@@ -49,9 +57,9 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold tracking-tight text-surface-900">Orders</h1><p className="text-sm text-surface-400 mt-1">{orders.length} total orders</p></div>
       <div className="flex gap-1 bg-surface-100 p-1 rounded-xl w-fit">
-        {(["active","completed"] as const).map(tab => (
+        {(["active","completed","cancelled"] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab===tab?"bg-white text-surface-900 shadow-sm":"text-surface-400 hover:text-surface-600"}`}>
-            {tab==="active"?`Active (${active.length})`:`Completed (${completed.length})`}
+            {tab==="active"?`Active (${active.length})`:tab==="completed"?`Completed (${completed.length})`:`Cancelled (${cancelled.length})`}
           </button>
         ))}
       </div>
@@ -80,7 +88,8 @@ export default function OrdersPage() {
             </tbody>
           </table>
         </div>
-        {displayed.length===0&&<EmptyState icon={faBoxes} title="No orders found" description={activeTab==="active"?"No active orders.":"No completed orders yet."}/>}
+        {displayed.length===0&&<EmptyState icon={faBoxes} title="No orders found" description={activeTab==="active"?"No active orders.":activeTab==="completed"?"No completed orders yet.":"No cancelled orders."}/>}
+        {tabData.length > PAGE_SIZE && <Pagination page={page} totalPages={totalPages} total={tabData.length} pageSize={PAGE_SIZE} onPrev={() => setPage(p => Math.max(1, p-1))} onNext={() => setPage(p => Math.min(totalPages, p+1))} />}
       </div>
 
       {/* Detail Modal */}
