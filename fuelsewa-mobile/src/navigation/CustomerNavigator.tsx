@@ -42,7 +42,7 @@ function CustomerTabs() {
             Track: "map",
             Profile: "person",
           };
-          return <Icon name={icons[route.name] ?? "circle"} size={size} color={color} />;
+          return <Icon name={(icons[route.name] ?? "circle") as any} size={size} color={color} />;
         },
       })}
     >

@@ -11,7 +11,7 @@ import { io, Socket } from "socket.io-client";
 import api from "../../api/axios";
 import { Colors } from "../../theme/colors";
 
-const SOCKET_URL = "http://192.168.1.77:3000";
+const SOCKET_URL = "http://192.168.1.89:3000";
 
 interface Location {
   latitude: number;
@@ -202,7 +202,7 @@ export default function TrackScreen() {
           }
         }
 
-        setResolvedOrderId(activeId);
+        setResolvedOrderId(activeId ?? null);
 
         const orderRes = await api.get(`/orders/${activeId}`);
         const orderData = orderRes.data.data;
