@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CONFIG[status] ?? { label: status, color: Colors.gray500, bg: Colors.gray100, icon: "circle" };
   return (
     <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
-      <Icon name={cfg.icon} size={11} color={cfg.color} />
+      <Icon name={cfg.icon as any} size={11} color={cfg.color} />
       <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
     </View>
   );

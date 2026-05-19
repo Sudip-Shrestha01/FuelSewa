@@ -27,7 +27,7 @@ export default function ProfileScreen() {
             { icon: "phone", label: "Phone", value: user?.phone },
           ].map((row) => (
             <View key={row.label} style={styles.infoRow}>
-              <Icon name={row.icon} size={18} color={Colors.gray400} />
+              <Icon name={row.icon as any} size={18} color={Colors.gray400} />
               <View style={styles.infoText}>
                 <Text style={styles.infoLabel}>{row.label}</Text>
                 <Text style={styles.infoValue}>{row.value ?? "—"}</Text>
