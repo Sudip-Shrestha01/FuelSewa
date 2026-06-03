@@ -6,6 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EXPO_PROJECT_ID"
+      }
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -23,7 +28,8 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "pan"
     },
     "ios": {
       "supportsTablet": true,
@@ -41,6 +47,16 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "FuelSewa needs your location to detect your delivery address."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1D9E75",
+          "sounds": ["./assets/notification.wav"],
+          "androidMode": "default",
+          "androidCollapsedTitle": "FuelSewa"
         }
       ]
     ]

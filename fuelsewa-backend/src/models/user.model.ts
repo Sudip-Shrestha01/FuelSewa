@@ -10,6 +10,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   role: UserRole;
+  fcmToken?: string | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -52,6 +53,10 @@ const userSchema = new Schema<IUser>(
       type: String,
       enum: ["driver", "customer", "admin"],
       default: "customer",
+    },
+    fcmToken: {
+      type: String,
+      default: null,
     },
   },
   { timestamps: true }

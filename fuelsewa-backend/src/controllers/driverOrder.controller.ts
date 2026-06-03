@@ -1,7 +1,9 @@
 import { Response } from "express";
 import Order from "../models/order.model";
+import User from "../models/user.model";
 import Driver from "../models/driver.model";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { sendNotification, sendMulticastNotification, NotificationTemplates } from "../services/notification.service";
 
 // Haversine formula — distance in KM between two coordinates
 const getDistanceKm = (
@@ -198,7 +200,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
     const order = await Order.findOne({
       _id: req.params.id,
       assignedDriverId: driverId,
-    });
+    }).populate("userId", "firstName lastName fcmToken");
 
     if (!order) {
       res.status(404).json({ success: false, message: "Order not found or not assigned to you" });
@@ -207,6 +209,34 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
 
     order.status = status;
     await order.save();
+
+    // Notify customer about status change
+    const customer = order.userId as any;
+    const driver = await Driver.findById(driverId).select("firstName lastName");
+
+    if (customer?.fcmToken && driver) {
+      if (status === "in_progress") {
+        await sendNotification(
+          customer.fcmToken,
+          NotificationTemplates.orderInProgress(`${driver.firstName} ${driver.lastName}`)
+        );
+      } else if (status === "delivered") {
+        await sendNotification(customer.fcmToken, NotificationTemplates.orderDelivered());
+      }
+    }
+
+    // Notify all admins about driver status change
+    const admins = await User.find({ role: "admin", fcmToken: { $ne: null } }).select("fcmToken");
+    const adminTokens = admins.map((a: any) => a.fcmToken).filter(Boolean) as string[];
+    const orderId = order._id.toString();
+    const driverName = driver ? `${driver.firstName} ${driver.lastName}` : "Driver";
+
+    if (adminTokens.length) {
+      const adminPayload = status === "in_progress"
+        ? NotificationTemplates.tripStarted(driverName, orderId)
+        : NotificationTemplates.tripCompleted(driverName, orderId);
+      await sendMulticastNotification(adminTokens, adminPayload);
+    }
 
     res.status(200).json({
       success: true,

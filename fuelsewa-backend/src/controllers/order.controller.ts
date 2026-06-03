@@ -1,7 +1,9 @@
 import { Response } from "express";
 import Order from "../models/order.model";
 import Pricing from "../models/pricing.model";
+import User from "../models/user.model";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { sendMulticastNotification, NotificationTemplates } from "../services/notification.service";
 
 // Roadside and emergency logic
 const isEmergencyRequest = (requestSource: string): boolean => {
@@ -108,6 +110,15 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<void
       message: "Order placed successfully",
       data: order,
     });
+
+    // Notify all admins about new order (fire-and-forget)
+    try {
+      const admins = await User.find({ role: "admin", fcmToken: { $ne: null } }).select("fcmToken");
+      const tokens = admins.map((a: any) => a.fcmToken).filter(Boolean) as string[];
+      if (tokens.length) {
+        await sendMulticastNotification(tokens, NotificationTemplates.orderPlaced(order._id.toString()));
+      }
+    } catch {}
   } catch (error: any) {
     res.status(500).json({ success: false, message: "Internal server error", error: error.message });
   }

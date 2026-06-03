@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "../api/axios";
+import { useNotificationStore } from "./notificationStore";
 
 export type UserRole = "customer" | "driver";
 
@@ -57,6 +58,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { token, data } = res.data;
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("user", JSON.stringify(data));
+      // Clear previous notifications from a different role
+      useNotificationStore.getState().clear();
       set({ token, user: data, loading: false });
       return data.role as UserRole;
     } catch (err: any) {
@@ -73,7 +76,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await api.post("/auth/register", data);
       set({ loading: false });
-      // Don't save token — user must login after registering
     } catch (err: any) {
       set({
         loading: false,
@@ -86,6 +88,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("user");
+    // Clear notifications on logout
+    useNotificationStore.getState().clear();
     set({ user: null, token: null });
   },
 

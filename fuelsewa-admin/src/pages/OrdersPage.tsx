@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faEye, faUserPlus, faGasPump, faBoxes,
@@ -37,6 +38,16 @@ export default function OrdersPage() {
   useEffect(() => { fetch(); }, []);
   // Reset page when tab changes
   useEffect(() => { setPage(1); }, [activeTab]);
+
+  // Auto-open order from notification navigation
+  const location = useLocation();
+  useEffect(() => {
+    const state = location.state as { openOrderId?: string } | null;
+    if (state?.openOrderId && orders.length > 0) {
+      const target = orders.find((o) => o._id === state.openOrderId);
+      if (target) { setSel(target); setShowAssign(false); }
+    }
+  }, [location.state, orders]);
 
   const active = orders.filter(o => !["delivered","cancelled"].includes(o.status));
   const completed = orders.filter(o => o.status === "delivered");

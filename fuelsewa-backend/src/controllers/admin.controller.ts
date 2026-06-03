@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import User from "../models/user.model";
 import Driver from "../models/driver.model";
 import Order from "../models/order.model";
+import { sendNotification, sendMulticastNotification, NotificationTemplates } from "../services/notification.service";
 
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -131,12 +132,64 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       { ...(status && { status }), ...(assignedDriverId && { assignedDriverId }), ...(estimatedDeliveryMinutes && { estimatedDeliveryMinutes }) },
       { new: true, runValidators: true }
     )
-      .populate("userId", "firstName lastName email phone")
-      .populate("assignedDriverId", "firstName lastName contactNumber");
+      .populate("userId", "firstName lastName email phone fcmToken")
+      .populate("assignedDriverId", "firstName lastName contactNumber fcmToken");
 
     if (!order) {
       res.status(404).json({ success: false, message: "Order not found" });
       return;
+    }
+
+    const customer = order.userId as any;
+
+    // ── Notify customer based on STATUS change only ──────────────────────────
+    // (driver assign notifications are handled separately below to avoid duplicates)
+    if (customer?.fcmToken && status && !assignedDriverId) {
+      if (status === "in_progress") {
+        const drv = order.assignedDriverId as any;
+        if (drv) await sendNotification(customer.fcmToken,
+          NotificationTemplates.orderInProgress(`${drv.firstName} ${drv.lastName}`));
+      } else if (status === "delivered") {
+        await sendNotification(customer.fcmToken, NotificationTemplates.orderDelivered());
+      } else if (status === "cancelled") {
+        await sendNotification(customer.fcmToken, NotificationTemplates.orderCancelled());
+      }
+    }
+
+    // ── When admin assigns a driver ──────────────────────────────────────────
+    if (assignedDriverId) {
+      const driverDoc = await Driver.findById(assignedDriverId).select("firstName lastName fcmToken");
+      const driverName = driverDoc ? `${driverDoc.firstName} ${driverDoc.lastName}` : "A driver";
+      console.log(`[Assign] Driver: ${driverName}, fcmToken: ${driverDoc?.fcmToken ? "EXISTS" : "NULL"}`);
+
+      // 1. Notify the driver about the new assignment
+      if (driverDoc?.fcmToken) {
+        const deliveryAddr = order.deliveryLocation?.address ?? "Unknown location";
+        const sent = await sendNotification(driverDoc.fcmToken,
+          NotificationTemplates.newOrderAssigned(
+            order._id.toString(),
+            order.fuelType,
+            deliveryAddr
+          )
+        );
+        console.log(`[Assign] Driver notification sent: ${sent}`);
+      } else {
+        console.warn(`[Assign] Driver has no fcmToken — notification skipped`);
+      }
+
+      // 2. Notify the customer that a driver has been assigned
+      const userId = (order.userId as any)?._id ?? order.userId;
+      console.log(`[Assign] Looking up customer fcmToken for userId: ${userId}`);
+      const customerDoc = await User.findById(userId).select("fcmToken firstName");
+      console.log(`[Assign] Customer found: ${customerDoc?.firstName}, fcmToken: ${customerDoc?.fcmToken ? "EXISTS" : "NULL"}`);
+      if (customerDoc?.fcmToken) {
+        const sent = await sendNotification(customerDoc.fcmToken,
+          NotificationTemplates.driverAssigned(driverName, estimatedDeliveryMinutes ?? null)
+        );
+        console.log(`[Assign] Customer notification sent: ${sent}`);
+      } else {
+        console.warn(`[Assign] Customer has no fcmToken — notification skipped`);
+      }
     }
 
     res.status(200).json({ success: true, message: "Order updated successfully", data: order });

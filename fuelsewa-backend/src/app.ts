@@ -11,6 +11,7 @@ import pricingRoutes from "./routes/pricing.routes";
 import profileRoutes from "./routes/profile.routes";
 import adminRoutes from "./routes/admin.routes";
 import driverOrderRoutes from "./routes/driverOrder.routes";
+import notificationRoutes from "./routes/notification.routes";
 import dispatchRoutes from "./routes/dispatch.routes";
 
 dotenv.config();
@@ -44,6 +45,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/dispatch", dispatchRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/driver/orders", driverOrderRoutes);
+app.use("/api/notifications", notificationRoutes);
 
   // Socket.io connection
   io.on("connection", (socket) => {

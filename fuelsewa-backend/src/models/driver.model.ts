@@ -43,6 +43,7 @@ export interface IDriver extends Document {
     longitude: number;
   };
   isActive: boolean;
+  fcmToken?: string | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -117,6 +118,7 @@ const driverSchema = new Schema<IDriver>(
       longitude: { type: Number, default: null },
     },
     isActive: { type: Boolean, default: true },
+    fcmToken: { type: String, default: null },
   },
   { timestamps: true }
 );
