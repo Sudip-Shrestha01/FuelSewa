@@ -11,8 +11,10 @@
 import { Request, Response } from "express";
 import Order from "../models/order.model";
 import Driver from "../models/driver.model";
+import User from "../models/user.model";
 import { findOptimalDrivers } from "../services/driverSelectionService";
 import { getRoute } from "../services/routePlanner";
+import { sendNotification, NotificationTemplates } from "../services/notification.service";
 
 /**
  * POST /api/admin/dispatch/find-drivers
@@ -192,8 +194,33 @@ export const assignDriverToOrder = async (req: Request, res: Response): Promise<
 
     // Re-fetch with populated fields
     const updated = await Order.findById(orderId)
-      .populate("userId", "firstName lastName email phone")
-      .populate("assignedDriverId", "firstName lastName contactNumber vehicleInfo");
+      .populate("userId", "firstName lastName email phone fcmToken")
+      .populate("assignedDriverId", "firstName lastName contactNumber vehicleInfo fcmToken");
+
+    // ── Send notifications ────────────────────────────────────────────────────
+    const driverName = `${driver.firstName} ${driver.lastName}`;
+
+    // 1. Notify the driver
+    const driverWithToken = await Driver.findById(driverId).select("fcmToken");
+    if (driverWithToken?.fcmToken) {
+      await sendNotification(
+        driverWithToken.fcmToken,
+        NotificationTemplates.newOrderAssigned(
+          orderId,
+          order.fuelType,
+          order.deliveryLocation?.address ?? "Unknown location"
+        )
+      );
+    }
+
+    // 2. Notify the customer
+    const customerDoc = await User.findById(order.userId).select("fcmToken");
+    if (customerDoc?.fcmToken) {
+      await sendNotification(
+        customerDoc.fcmToken,
+        NotificationTemplates.driverAssigned(driverName, estimatedDeliveryMinutes ?? null)
+      );
+    }
 
     res.status(200).json({
       success: true,

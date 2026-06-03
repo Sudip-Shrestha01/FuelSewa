@@ -1,7 +1,11 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import NotificationToast from "./NotificationToast";
+import { useNotifications } from "../hooks/useNotifications";
 
 export default function DashboardLayout() {
+  useNotifications();
+
   return (
     <div className="flex min-h-screen bg-surface-50">
       <Sidebar />
@@ -12,6 +16,7 @@ export default function DashboardLayout() {
           </div>
         </div>
       </main>
+      <NotificationToast />
     </div>
   );
 }

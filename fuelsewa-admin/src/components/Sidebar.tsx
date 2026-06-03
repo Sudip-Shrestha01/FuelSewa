@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
+import { useNotificationStore } from "../store/notificationStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartPie, faBoxes, faTruck, faUsers,
   faTag, faRightFromBracket, faChevronLeft, faChevronRight,
-  faMapLocationDot,
+  faMapLocationDot, faBell,
 } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
 
@@ -19,6 +20,7 @@ const links = [
 
 export default function Sidebar() {
   const { logout, admin } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -31,7 +33,7 @@ export default function Sidebar() {
     <aside
       className={`${
         collapsed ? "w-[72px]" : "w-[260px]"
-      } h-screen sticky top-0 bg-surface-950 flex flex-col transition-all duration-300 ease-in-out select-none z-20`}
+      } min-h-screen bg-surface-950 flex flex-col transition-all duration-300 ease-in-out relative select-none`}
     >
       {/* Collapse toggle */}
       <button
@@ -86,6 +88,42 @@ export default function Sidebar() {
             {!collapsed && <span className="animate-fade-in">{link.label}</span>}
           </NavLink>
         ))}
+
+        {/* Notifications link with badge */}
+        <NavLink
+          to="/notifications"
+          className={({ isActive }) =>
+            `group flex items-center ${collapsed ? "justify-center" : ""} gap-3 ${
+              collapsed ? "px-0 py-2.5" : "px-3.5 py-2.5"
+            } rounded-xl text-[13px] font-medium transition-all duration-200 relative ${
+              isActive
+                ? "bg-primary-500/15 text-primary-400 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.1)]"
+                : "text-surface-400 hover:bg-white/[0.04] hover:text-surface-200"
+            }`
+          }
+        >
+          <div className="relative">
+            <FontAwesomeIcon
+              icon={faBell}
+              className={`text-sm ${collapsed ? "" : "w-4"} transition-transform duration-200 group-hover:scale-110`}
+            />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </div>
+          {!collapsed && (
+            <span className="animate-fade-in flex items-center gap-2">
+              Notifications
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </span>
+          )}
+        </NavLink>
       </nav>
 
       {/* User info + logout */}

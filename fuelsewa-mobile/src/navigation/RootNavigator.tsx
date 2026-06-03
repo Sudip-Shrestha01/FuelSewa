@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { useAuthStore } from "../store/authStore";
 import AuthNavigator from "./AuthNavigator";
 import CustomerNavigator from "./CustomerNavigator";
 import DriverNavigator from "./DriverNavigator";
 import { Colors } from "../theme/colors";
 
-export default function RootNavigator() {
+interface Props {
+  navigationRef?: React.RefObject<NavigationContainerRef<any>>;
+}
+
+export default function RootNavigator({ navigationRef }: Props) {
   const { token, user, loadToken } = useAuthStore();
   const [booting, setBooting] = useState(true);
 
@@ -24,7 +28,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {!token || !user ? (
         <AuthNavigator />
       ) : user.role === "driver" ? (

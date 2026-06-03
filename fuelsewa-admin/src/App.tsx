@@ -9,6 +9,7 @@ import CreateDriverPage from "./pages/CreateDriverPage";
 import CustomersPage from "./pages/CustomersPage";
 import PricingPage from "./pages/PricingPage";
 import DispatchMapPage from "./pages/DispatchMapPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="customers" element={<CustomersPage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="dispatch" element={<DispatchMapPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
         {/* Full screen — outside layout */}
         <Route
