@@ -4,6 +4,7 @@ import Pricing from "../models/pricing.model";
 import User from "../models/user.model";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { sendMulticastNotification, NotificationTemplates } from "../services/notification.service";
+import { recordOrderOutcome, buildOrderOutcomeData } from "../services/cancellationPrediction";
 
 // Roadside and emergency logic
 const isEmergencyRequest = (requestSource: string): boolean => {
@@ -183,6 +184,10 @@ export const cancelOrder = async (req: AuthRequest, res: Response): Promise<void
     order.status = "cancelled";
     order.cancelReason = cancelReason?.trim() || "";
     await order.save();
+
+    recordOrderOutcome(buildOrderOutcomeData(order, "cancelled")).catch((err) => {
+      console.warn("[AI] Failed to record outcome:", err.message);
+    });
 
     res.status(200).json({ success: true, message: "Order cancelled successfully", data: order });
   } catch (error: any) {

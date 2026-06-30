@@ -3,6 +3,7 @@ import User from "../models/user.model";
 import Driver from "../models/driver.model";
 import Order from "../models/order.model";
 import { sendNotification, sendMulticastNotification, NotificationTemplates } from "../services/notification.service";
+import { recordOrderOutcome, buildOrderOutcomeData } from "../services/cancellationPrediction";
 
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -190,6 +191,18 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
       } else {
         console.warn(`[Assign] Customer has no fcmToken — notification skipped`);
       }
+    }
+
+    // ── Record final outcome for AI model retraining ─────────────────────
+    if (status === "cancelled" || status === "delivered") {
+      const outcomeData = buildOrderOutcomeData(order, status);
+      recordOrderOutcome(outcomeData).then((res) => {
+        if (res.auto_retrained) {
+          console.log(`[AI] Model auto-retrained after ${res.new_count} new samples`);
+        }
+      }).catch((err) => {
+        console.warn("[AI] Failed to record outcome:", err.message);
+      });
     }
 
     res.status(200).json({ success: true, message: "Order updated successfully", data: order });
