@@ -44,10 +44,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   error: null,
 
   loadToken: async () => {
-    const token = await AsyncStorage.getItem("token");
-    const userStr = await AsyncStorage.getItem("user");
-    if (token && userStr) {
-      set({ token, user: JSON.parse(userStr) });
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const userStr = await AsyncStorage.getItem("user");
+      if (token && userStr) {
+        set({ token, user: JSON.parse(userStr) });
+      }
+    } catch {
+      await AsyncStorage.removeItem("token");
+      await AsyncStorage.removeItem("user");
     }
   },
 

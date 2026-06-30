@@ -9,27 +9,25 @@ import TrackScreen from "../screens/customer/TrackScreen";
 import ProfileScreen from "../screens/customer/ProfileScreen";
 import RequestFuelScreen from "../screens/customer/RequestFuelScreen";
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
-import { useNotificationStore } from "../store/notificationStore";
 import { Colors } from "../theme/colors";
 
 export type CustomerTabParamList = {
   Home: undefined;
   Orders: undefined;
   Track: { orderId?: string } | undefined;
-  Notifications: undefined;
   Profile: undefined;
+};
+
+export type CustomerStackParamList = {
+  Tabs: undefined;
+  RequestFuel: undefined;
+  Notifications: undefined;
 };
 
 const Tab = createBottomTabNavigator<CustomerTabParamList>();
 
-const CUSTOMER_TYPES = ["driver_assigned", "in_progress", "delivered", "cancelled"];
-
 function CustomerTabs() {
   const insets = useSafeAreaInsets();
-  const allNotifications = useNotificationStore((s) => s.notifications);
-  const unreadCount = allNotifications.filter(
-    (n) => !n.read && (CUSTOMER_TYPES.includes(n.type) || n.type === "info")
-  ).length;
 
   return (
     <Tab.Navigator
@@ -41,8 +39,8 @@ function CustomerTabs() {
           backgroundColor: Colors.white,
           borderTopColor: "#F1F5F9",
           borderTopWidth: 1,
-          height: 56 + insets.bottom,   // add safe area bottom inset
-          paddingBottom: insets.bottom,  // push icons above nav bar
+          height: 56 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 6,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
@@ -51,7 +49,6 @@ function CustomerTabs() {
             Home: "home",
             Orders: "receipt-long",
             Track: "map",
-            Notifications: "notifications",
             Profile: "person",
           };
           return <Icon name={(icons[route.name] ?? "circle") as any} size={size} color={color} />;
@@ -61,20 +58,10 @@ function CustomerTabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: "My Orders" }} />
       <Tab.Screen name="Track" component={TrackScreen} />
-      <Tab.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{ tabBarBadge: unreadCount > 0 ? unreadCount : undefined }}
-      />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
-
-export type CustomerStackParamList = {
-  Tabs: undefined;
-  RequestFuel: undefined;
-};
 
 const Stack = createNativeStackNavigator<CustomerStackParamList>();
 
@@ -86,6 +73,11 @@ export default function CustomerNavigator() {
         name="RequestFuel"
         component={RequestFuelScreen}
         options={{ presentation: "card", animation: "slide_from_bottom" }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ animation: "slide_from_right" }}
       />
     </Stack.Navigator>
   );

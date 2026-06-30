@@ -46,14 +46,10 @@ export default function App() {
           });
         }
       },
-      // Notification tapped — navigate to Notifications tab
+      // Notification tapped — navigate to Notifications screen
       (_response) => {
         if (!navigationRef.current) return;
-        if (user.role === "driver") {
-          navigationRef.current.navigate("DriverTabs", { screen: "Notifications" });
-        } else {
-          navigationRef.current.navigate("Tabs", { screen: "Notifications" });
-        }
+        navigationRef.current.navigate("Notifications" as any);
       }
     );
 

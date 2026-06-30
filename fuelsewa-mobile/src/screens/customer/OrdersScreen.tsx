@@ -181,8 +181,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
               style={styles.trackBtn}
               onPress={() => {
                 onClose();
-                // @ts-ignore
-                navigation.navigate("Tabs", { screen: "Track", params: { orderId: order._id } });
+                (navigation as any).navigate("Track", { orderId: order._id });
               }}
             >
               <Icon name="map" size={18} color={Colors.white} />
@@ -260,6 +259,14 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
             <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelPress} activeOpacity={0.85}>
               <Icon name="cancel" size={18} color={Colors.white} />
               <Text style={styles.cancelBtnText}>Cancel Order</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Reorder — delivered orders */}
+          {order.status === "delivered" && (
+            <TouchableOpacity style={styles.reorderBtn} onPress={() => { onClose(); (navigation as any).navigate("RequestFuel"); }} activeOpacity={0.85}>
+              <Icon name="replay" size={18} color={Colors.primary} />
+              <Text style={styles.reorderBtnText}>Reorder</Text>
             </TouchableOpacity>
           )}
 
@@ -353,12 +360,20 @@ export default function OrdersScreen() {
         <TouchableOpacity
           style={styles.cardTrackBtn}
           onPress={() => {
-            // @ts-ignore
-            navigation.navigate("Track", { orderId: item._id });
+            (navigation as any).navigate("Track", { orderId: item._id });
           }}
         >
           <Icon name="map" size={14} color={Colors.primary} />
           <Text style={styles.cardTrackBtnText}>Track Driver</Text>
+        </TouchableOpacity>
+      )}
+      {item.status === "delivered" && (
+        <TouchableOpacity
+          style={styles.cardReorderBtn}
+          onPress={() => (navigation as any).navigate("RequestFuel")}
+        >
+          <Icon name="replay" size={14} color={Colors.primary} />
+          <Text style={styles.cardReorderBtnText}>Reorder</Text>
         </TouchableOpacity>
       )}
       {item.isEmergency && (
@@ -538,6 +553,12 @@ const styles = StyleSheet.create({
     shadowColor: "#DC2626", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
   },
   cancelBtnText: { color: Colors.white, fontSize: 15, fontWeight: "700" },
+  reorderBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: Colors.primaryLight, borderRadius: 14, paddingVertical: 14,
+    borderWidth: 1.5, borderColor: Colors.primary,
+  },
+  reorderBtnText: { color: Colors.primary, fontSize: 15, fontWeight: "700" },
   cancelBox: {
     backgroundColor: "#FEF2F2", borderRadius: 14, padding: 16,
     borderWidth: 1.5, borderColor: "#FECACA",
@@ -573,4 +594,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   cardTrackBtnText: { fontSize: 13, color: Colors.primary, fontWeight: "700" },
+  cardReorderBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    borderTopWidth: 1, borderTopColor: Colors.gray100, backgroundColor: Colors.primaryLight,
+    paddingVertical: 10,
+  },
+  cardReorderBtnText: { fontSize: 13, color: Colors.primary, fontWeight: "700" },
 });

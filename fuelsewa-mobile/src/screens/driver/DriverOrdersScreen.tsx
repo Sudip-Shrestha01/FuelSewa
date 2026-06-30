@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
@@ -47,6 +47,7 @@ interface Order {
     totalPrice?: number;
     subtotal?: number;
   };
+  completedAt?: string;
 }
 
 const MOCK_ORDERS: Order[] = [
@@ -279,6 +280,8 @@ export default function DriverOrdersScreen() {
   const navigation = useNavigation();
   const { user } = useAuthStore();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [completedOrders, setCompletedOrders] = useState<Order[]>([]);
+  const [totalEarnings, setTotalEarnings] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -326,7 +329,7 @@ export default function DriverOrdersScreen() {
       const res = await api.get(url);
       const data = res.data?.data;
 
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         const formattedOrders = data.map((item: any) => {
           const meta = getStableCustomerMeta(item.orderId || item._id);
           return {
@@ -338,7 +341,7 @@ export default function DriverOrdersScreen() {
               duration: meta.duration,
               avatar: item.customer?.profilePhoto || null,
             },
-            distanceKm: item.distanceKm,
+            distanceKm: item.distanceKm ?? null,
             fuelType: item.fuelType || "petrol",
             quantity: item.quantity,
             deliveryLocation: {
@@ -353,12 +356,49 @@ export default function DriverOrdersScreen() {
           };
         });
         setOrders(formattedOrders);
-      } else {
-        setOrders(MOCK_ORDERS);
+      }
+
+      // Fetch completed orders
+      try {
+        const completedRes = await api.get("/driver/orders/completed");
+        const completedData = completedRes.data?.data || [];
+        const formattedCompleted = completedData.map((item: any) => {
+          const meta = getStableCustomerMeta(item.orderId || item._id);
+          return {
+            _id: item.orderId || item._id,
+            customer: {
+              name: item.customer?.name || "Customer",
+              rating: meta.rating,
+              reviewsCount: meta.reviewsCount,
+              duration: meta.duration,
+              avatar: item.customer?.profilePhoto || null,
+            },
+            distanceKm: null,
+            fuelType: item.fuelType || "petrol",
+            quantity: item.quantity,
+            deliveryLocation: {
+              address: item.deliveryLocation?.address || "Address",
+              landmark: item.deliveryLocation?.landmark || "",
+              latitude: item.deliveryLocation?.latitude,
+              longitude: item.deliveryLocation?.longitude,
+            },
+            isEmergency: item.isEmergency || false,
+            status: "delivered",
+            pricing: item.pricing || { totalPrice: item.quantity ? item.quantity * 125 : 100 },
+            completedAt: item.completedAt,
+          };
+        });
+        setCompletedOrders(formattedCompleted);
+        let earnings = 0;
+        formattedCompleted.forEach((o: any) => {
+          earnings += o.pricing?.totalPrice || o.pricing?.subtotal || o.quantity * 125;
+        });
+        setTotalEarnings(earnings);
+      } catch (err) {
+        console.warn("Failed to fetch completed orders:", err);
       }
     } catch (err) {
       console.warn("API error: ", err);
-      setOrders(MOCK_ORDERS);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -368,6 +408,14 @@ export default function DriverOrdersScreen() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  const sections = useMemo(() => {
+    const active = orders.filter((o) => o.status === "accepted" || o.status === "in_progress");
+    return [
+      { title: "Active Trips", data: active.length > 0 ? active : [] },
+      { title: "Completed", data: completedOrders },
+    ].filter((s) => s.data.length > 0);
+  }, [orders, completedOrders]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -466,11 +514,13 @@ export default function DriverOrdersScreen() {
   };
 
   const renderItem = ({ item }: { item: Order }) => {
-    const formattedDistance = item.distanceKm !== null 
-      ? `~${item.distanceKm.toFixed(1).replace(".", ",")} km`
-      : "~2,5 km";
+    const isActive = item.status === "accepted" || item.status === "in_progress";
+    const formattedDistance = item.distanceKm != null 
+      ? `~${item.distanceKm.toFixed(1)} km`
+      : null;
 
     const customerFirstName = item.customer.name.split(" ")[0].toLowerCase();
+    const price = item.pricing?.totalPrice || item.pricing?.subtotal || (item.quantity || 0) * 125;
 
     return (
       <TouchableOpacity 
@@ -478,63 +528,63 @@ export default function DriverOrdersScreen() {
         onPress={() => handleOpenDetail(item)}
         activeOpacity={0.8}
       >
-        {/* Left Profile Column */}
+        {/* Left - Status Indicator */}
         <View style={styles.leftColumn}>
-          {item.customer.avatar ? (
-            <Image source={{ uri: item.customer.avatar }} style={styles.avatarImage} />
+          {isActive ? (
+            <View style={styles.activeStatusCircle}>
+              <View style={styles.activeStatusDot} />
+            </View>
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Icon name="person" size={26} color="#A3A3A3" />
+            <View style={styles.completedStatusCircle}>
+              <Icon name="check" size={16} color="#10B981" />
             </View>
           )}
           
-          <Text style={styles.customerName} numberOfLines={1}>
-            {customerFirstName}
+          <Text style={styles.fuelTypeLabel} numberOfLines={1}>
+            {item.fuelType.toUpperCase()}
           </Text>
           
-          <View style={styles.ratingRow}>
-            <Icon name="star" size={10} color="#FBBF24" style={styles.starIcon} />
-            <Text style={styles.ratingText}>{item.customer.rating}</Text>
-          </View>
-          
-          <Text style={styles.reviewsText}>
-            ({item.customer.reviewsCount})
-          </Text>
-          
-          <Text style={styles.durationText}>
-            {item.customer.duration}
+          <Text style={styles.quantityLabel}>
+            {item.quantity || 0}L
           </Text>
         </View>
 
         {/* Center Details Column */}
         <View style={styles.centerColumn}>
-          <Text style={styles.distanceText}>{formattedDistance}</Text>
-
-          <View style={styles.fuelTitleContainer}>
-            <Text style={styles.fuelTypeTitle}>
-              {item.fuelType.toUpperCase()}
-            </Text>
-            
-            {item.isEmergency && (
-              <View style={styles.purpleBadge}>
-                <Icon name="adjust" size={12} color="#D688FF" />
-                <Text style={styles.purpleBadgeText}>Priority</Text>
-              </View>
-            )}
-          </View>
-
+          <Text style={styles.customerNameSmall}>{customerFirstName}</Text>
+          
           <Text style={styles.addressText} numberOfLines={2}>
             {item.deliveryLocation.address}
           </Text>
 
-          <Text style={styles.landmarkText} numberOfLines={2}>
-            {item.deliveryLocation.landmark || "FuelSewa Depot (Kathmandu)"}
-          </Text>
+          <View style={styles.metaRow}>
+            {formattedDistance && (
+              <Text style={styles.distanceTextSmall}>{formattedDistance}</Text>
+            )}
+            {item.isEmergency && (
+              <View style={styles.purpleBadge}>
+                <Text style={styles.purpleBadgeText}>Priority</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Right Arrow */}
+        {/* Right - Price */}
         <View style={styles.rightColumn}>
-          <Icon name="arrow-forward-ios" size={18} color="#4B5563" />
+          <Text style={styles.priceText}>Rs. {price}</Text>
+          {!isActive && (
+            <>
+              <Text style={styles.completedLabel}>Delivered</Text>
+              {item.completedAt && (
+                <Text style={styles.dateLabel}>
+                  {new Date(item.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </Text>
+              )}
+            </>
+          )}
+          {isActive && (
+            <Icon name="arrow-forward-ios" size={14} color="#4B5563" />
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -555,23 +605,30 @@ export default function DriverOrdersScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
-          <Icon name="arrow-back-ios" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Assigned Shipments</Text>
-        <View style={{ width: 40 }} />
+        <View>
+          <Text style={styles.headerTitle}>My Trips</Text>
+        </View>
+        <View style={styles.headerEarnings}>
+          <Text style={styles.earningsLabel}>Total earned</Text>
+          <Text style={styles.earningsValue}>Rs. {totalEarnings}</Text>
+        </View>
       </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#1D9E75" />
-          <Text style={styles.loaderText}>Fetching shipments...</Text>
+          <Text style={styles.loaderText}>Loading trips...</Text>
         </View>
       ) : (
-        <FlatList
-          data={orders}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>{section.title}</Text>
+            </View>
+          )}
           contentContainerStyle={styles.listContainer}
           refreshControl={
             <RefreshControl 
@@ -584,8 +641,8 @@ export default function DriverOrdersScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Icon name="local-shipping" size={60} color="#4B5563" />
-              <Text style={styles.emptyTitle}>No Assigned Shipments</Text>
-              <Text style={styles.emptySub}>You have no orders assigned by dispatch yet.</Text>
+              <Text style={styles.emptyTitle}>No Trips Yet</Text>
+              <Text style={styles.emptySub}>Your completed trips will appear here.</Text>
             </View>
           }
         />
@@ -755,25 +812,47 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#1F2937",
     backgroundColor: "#1A1A1A",
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
     color: "#FFFFFF",
   },
+  headerEarnings: {
+    alignItems: "flex-end",
+  },
+  earningsLabel: {
+    fontSize: 10,
+    color: "#9CA3AF",
+    fontWeight: "600",
+  },
+  earningsValue: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#BEF264",
+    marginTop: 1,
+  },
+  sectionHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 8,
+    backgroundColor: "#121212",
+  },
+  sectionHeaderText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#9CA3AF",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   listContainer: {
     backgroundColor: "#121212",
+    paddingBottom: 20,
   },
   loaderContainer: {
     flex: 1,
@@ -794,78 +873,74 @@ const styles = StyleSheet.create({
     backgroundColor: "#151515",
   },
   leftColumn: {
-    width: 70,
+    width: 56,
     alignItems: "center",
-    marginRight: 14,
-  },
-  avatarPlaceholder: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#3A3A3A",
     justifyContent: "center",
+    marginRight: 12,
+  },
+  activeStatusCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
     alignItems: "center",
-    marginBottom: 4,
+    justifyContent: "center",
+    marginBottom: 6,
   },
-  avatarImage: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    marginBottom: 4,
+  activeStatusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#10B981",
   },
-  customerName: {
-    color: "#E5E7EB",
+  completedStatusCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  fuelTypeLabel: {
+    color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: "500",
-    marginBottom: 2,
+    fontWeight: "800",
     textAlign: "center",
-    width: "100%",
   },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 1,
-  },
-  starIcon: {
-    marginRight: 2,
-  },
-  ratingText: {
-    color: "#FBBF24",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  reviewsText: {
-    color: "#9CA3AF",
-    fontSize: 9,
-    marginBottom: 3,
-  },
-  durationText: {
+  quantityLabel: {
     color: "#9CA3AF",
     fontSize: 10,
     fontWeight: "500",
+    textAlign: "center",
   },
   centerColumn: {
     flex: 1,
     justifyContent: "center",
-    paddingRight: 6,
+    paddingRight: 8,
   },
-  distanceText: {
+  customerNameSmall: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
+  addressText: {
     color: "#9CA3AF",
     fontSize: 13,
     fontWeight: "500",
+    lineHeight: 18,
     marginBottom: 4,
   },
-  fuelTitleContainer: {
+  metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
+    gap: 8,
   },
-  fuelTypeTitle: {
-    color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: 0.5,
+  distanceTextSmall: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "500",
   },
   purpleBadge: {
     flexDirection: "row",
@@ -873,33 +948,36 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(214, 136, 255, 0.15)",
     borderColor: "rgba(214, 136, 255, 0.3)",
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
   },
   purpleBadgeText: {
     color: "#D688FF",
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "600",
-    marginLeft: 3,
-  },
-  addressText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "600",
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  landmarkText: {
-    color: "#9CA3AF",
-    fontSize: 13,
-    lineHeight: 18,
   },
   rightColumn: {
-    width: 30,
-    alignItems: "center",
+    width: 60,
+    alignItems: "flex-end",
     justifyContent: "center",
+  },
+  priceText: {
+    color: "#BEF264",
+    fontSize: 15,
+    fontWeight: "900",
+    marginBottom: 2,
+  },
+  completedLabel: {
+    color: "#6B7280",
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  dateLabel: {
+    color: "#4B5563",
+    fontSize: 9,
+    fontWeight: "500",
+    marginTop: 1,
   },
   emptyContainer: {
     alignItems: "center",

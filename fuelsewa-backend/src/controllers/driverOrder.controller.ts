@@ -4,6 +4,7 @@ import User from "../models/user.model";
 import Driver from "../models/driver.model";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { sendNotification, sendMulticastNotification, NotificationTemplates } from "../services/notification.service";
+import { recordOrderOutcome, buildOrderOutcomeData } from "../services/cancellationPrediction";
 
 // Haversine formula — distance in KM between two coordinates
 const getDistanceKm = (
@@ -209,6 +210,12 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
 
     order.status = status;
     await order.save();
+
+    if (status === "delivered") {
+      recordOrderOutcome(buildOrderOutcomeData(order, "delivered")).catch((err) => {
+        console.warn("[AI] Failed to record outcome:", err.message);
+      });
+    }
 
     // Notify customer about status change
     const customer = order.userId as any;

@@ -173,6 +173,8 @@ export default function RequestFuelScreen({ navigation }: any) {
   const emergencyFee = requestSource === "roadside" ? (pricing?.emergencyFee ?? 10) : 0;
   const totalPrice = fuelCost + deliveryFee + emergencyFee;
 
+  const outsideServiceArea = !!coords && !isInsideServiceArea(coords.latitude, coords.longitude);
+
   const handleSubmit = async () => {
     if (!address.trim()) { Alert.alert("Location required", "Please detect or enter your delivery address."); return; }
     if (!coords) { Alert.alert("Location required", "Please allow location access or enter coordinates."); return; }
@@ -240,12 +242,12 @@ export default function RequestFuelScreen({ navigation }: any) {
                   <Text style={styles.qtyValue}>{quantity}</Text>
                   <Text style={styles.qtyUnit}>liters</Text>
                 </View>
-                <TouchableOpacity style={[styles.qtyBtn, quantity >= 20 && styles.qtyBtnDisabled]} onPress={() => setQuantity((q) => Math.min(20, q + 1))} disabled={quantity >= 20}>
+                <TouchableOpacity style={[styles.qtyBtn, quantity >= 10 && styles.qtyBtnDisabled]} onPress={() => setQuantity((q) => Math.min(10, q + 1))} disabled={quantity >= 10}>
                   <Icon name="add" size={20} color={quantity >= 20 ? Colors.gray300 : Colors.black} />
                 </TouchableOpacity>
               </View>
               <View style={styles.qtySliderRow}>
-                {[1, 2, 3, 4, 5, 10, 15, 20].map((v) => (
+                {[1, 2, 3, 4, 5, 10].map((v) => (
                   <TouchableOpacity key={v} style={[styles.qtyChip, quantity === v && styles.qtyChipActive]} onPress={() => setQuantity(v)}>
                     <Text style={[styles.qtyChipText, quantity === v && styles.qtyChipTextActive]}>{v}L</Text>
                   </TouchableOpacity>
@@ -267,7 +269,7 @@ export default function RequestFuelScreen({ navigation }: any) {
               {requestSource === "roadside" && (
                 <View style={styles.emergencyNote}>
                   <Icon name="warning" size={14} color="#D97706" />
-                  <Text style={styles.emergencyNoteText}>Emergency fee of Rs. {pricing?.emergencyFee ?? 10} applies</Text>
+                  <Text style={styles.emergencyNoteText}>Roadside service fee of Rs. {pricing?.emergencyFee ?? 10} applies</Text>
                 </View>
               )}
             </View>
@@ -328,6 +330,12 @@ export default function RequestFuelScreen({ navigation }: any) {
                 <TextInput style={styles.input} placeholder="Landmark (optional)" placeholderTextColor={Colors.gray400} value={landmark} onChangeText={setLandmark} />
               </View>
               {coords && <Text style={styles.coordsText}>📍 {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}</Text>}
+              {outsideServiceArea && (
+                <View style={styles.outsideWarning}>
+                  <Icon name="warning" size={14} color="#DC2626" />
+                  <Text style={styles.outsideWarningText}>FuelSewa is available only in Kathmandu, Bhaktapur, and Lalitpur.</Text>
+                </View>
+              )}
             </View>
 
             {/* Note */}
@@ -344,14 +352,14 @@ export default function RequestFuelScreen({ navigation }: any) {
                 <Text style={styles.summaryTitle}>Price Summary</Text>
                 <View style={styles.summaryRow}><Text style={styles.summaryKey}>Fuel Cost ({quantity}L × Rs. {pricePerLiter})</Text><Text style={styles.summaryVal}>Rs. {fuelCost}</Text></View>
                 <View style={styles.summaryRow}><Text style={styles.summaryKey}>Delivery Fee</Text><Text style={styles.summaryVal}>Rs. {deliveryFee}</Text></View>
-                {emergencyFee > 0 && <View style={styles.summaryRow}><Text style={[styles.summaryKey, { color: "#D97706" }]}>Emergency Fee</Text><Text style={[styles.summaryVal, { color: "#D97706" }]}>Rs. {emergencyFee}</Text></View>}
+                {emergencyFee > 0 && <View style={styles.summaryRow}><Text style={[styles.summaryKey, { color: "#D97706" }]}>Roadside Service Fee</Text><Text style={[styles.summaryVal, { color: "#D97706" }]}>Rs. {emergencyFee}</Text></View>}
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryRow}><Text style={styles.summaryTotal}>Total</Text><Text style={styles.summaryTotalVal}>Rs. {totalPrice}</Text></View>
               </View>
             )}
 
             {/* Submit */}
-            <TouchableOpacity style={[styles.submitBtn, submitting && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
+            <TouchableOpacity style={[styles.submitBtn, (submitting || outsideServiceArea) && styles.submitBtnDisabled]} onPress={handleSubmit} disabled={submitting || outsideServiceArea} activeOpacity={0.85}>
               {submitting
                 ? <ActivityIndicator color={Colors.white} />
                 : <><Icon name="local-gas-station" size={20} color={Colors.white} /><Text style={styles.submitText}>Place Order · Rs. {totalPrice}</Text></>
@@ -409,6 +417,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 14, color: Colors.black, padding: 0 },
   noteInput: { minHeight: 72, alignSelf: "stretch" },
   coordsText: { fontSize: 11, color: Colors.gray400, marginTop: 8, marginLeft: 4 },
+  outsideWarning: { flexDirection: "row", alignItems: "flex-start", gap: 6, backgroundColor: "#FEF2F2", borderRadius: 10, padding: 10, marginTop: 8, borderWidth: 1, borderColor: "#FECACA" },
+  outsideWarningText: { flex: 1, fontSize: 12, color: "#DC2626", fontWeight: "500", lineHeight: 18 },
   suggestionsBox: { backgroundColor: Colors.white, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.gray200, marginTop: 6, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 6 },
   suggestionItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 13 },
   suggestionBorder: { borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
