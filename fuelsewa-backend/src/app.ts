@@ -13,6 +13,7 @@ import adminRoutes from "./routes/admin.routes";
 import driverOrderRoutes from "./routes/driverOrder.routes";
 import notificationRoutes from "./routes/notification.routes";
 import dispatchRoutes from "./routes/dispatch.routes";
+import predictionRoutes from "./routes/prediction.routes";
 
 dotenv.config();
 
@@ -46,6 +47,13 @@ app.use("/api/dispatch", dispatchRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/driver/orders", driverOrderRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/prediction", predictionRoutes);
+
+// Global error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ success: false, message: "Internal server error" });
+});
 
   // Socket.io connection
   io.on("connection", (socket) => {

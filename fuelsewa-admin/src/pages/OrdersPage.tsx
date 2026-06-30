@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faEye, faUserPlus, faGasPump, faBoxes,
   faLocationDot, faUser, faNoteSticky, faCircleCheck, faBan,
+  faChartLine,
 } from "@fortawesome/free-solid-svg-icons";
 import api from "../api/axios";
 import PageLoader from "../components/ui/PageLoader";
@@ -23,8 +24,20 @@ interface Order {
   userId: Customer | null; assignedDriverId: Driver | null; estimatedDeliveryMinutes: number | null; createdAt: string;
 }
 
+interface Prediction {
+  probability: number;
+  riskTag: "Low" | "Medium" | "High" | "Very High";
+}
+
 const BADGE_V: Record<string, "warning"|"info"|"violet"|"success"|"danger"> = { pending:"warning", accepted:"info", in_progress:"violet", delivered:"success", cancelled:"danger" };
 const PAGE_SIZE = 10;
+
+const RISK_BADGE: Record<string, { variant: "success" | "warning" | "danger"; label: string }> = {
+  Low: { variant: "success", label: "Low" },
+  Medium: { variant: "warning", label: "Medium" },
+  High: { variant: "danger", label: "High" },
+  "Very High": { variant: "danger", label: "Very High" },
+};
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]); const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -33,8 +46,26 @@ export default function OrdersPage() {
   const [sel, setSel] = useState<Order|null>(null); const [showAssign, setShowAssign] = useState(false);
   const [driverId, setDriverId] = useState(""); const [estMin, setEstMin] = useState("");
   const [assigning, setAssigning] = useState(false); const [assignErr, setAssignErr] = useState("");
+  const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
 
-  const fetch = async () => { try { const [o,d] = await Promise.all([api.get("/admin/orders"),api.get("/admin/drivers")]); setOrders(o.data.data); setDrivers(d.data.data); } finally { setLoading(false); } };
+  const fetchPredictions = useCallback(async (ordersToFetch: Order[]) => {
+    const pending = ordersToFetch.filter(o => o.status === "pending");
+    if (pending.length === 0) return;
+    const results: Record<string, Prediction> = {};
+    await Promise.all(
+      pending.map(async (order) => {
+        try {
+          const res = await api.post("/prediction/predict", { orderId: order._id });
+          results[order._id] = res.data.data;
+        } catch {
+          // ML service unavailable - skip
+        }
+      })
+    );
+    setPredictions(prev => ({ ...prev, ...results }));
+  }, []);
+
+  const fetch = async () => { try { const [o,d] = await Promise.all([api.get("/admin/orders"),api.get("/admin/drivers")]); setOrders(o.data.data); setDrivers(d.data.data); fetchPredictions(o.data.data); } finally { setLoading(false); } };
   useEffect(() => { fetch(); }, []);
   // Reset page when tab changes
   useEffect(() => { setPage(1); }, [activeTab]);
@@ -78,7 +109,7 @@ export default function OrdersPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-surface-100 bg-surface-50/50">
-              {["Customer","Fuel","Address","Amount","Driver","Status","Date","Actions"].map(h=><th key={h} className="px-6 py-3.5 text-left text-[11px] font-semibold text-surface-950 uppercase tracking-wider">{h}</th>)}
+              {["Customer","Fuel","Address","Amount","Risk","Driver","Status","Date","Actions"].map(h=><th key={h} className="px-6 py-3.5 text-left text-[11px] font-semibold text-surface-950 uppercase tracking-wider">{h}</th>)}
             </tr></thead>
             <tbody className="divide-y divide-surface-50">
               {displayed.map(order => (
@@ -87,6 +118,17 @@ export default function OrdersPage() {
                   <td className="px-6 py-3.5 capitalize text-surface-800 text-[13px]">{order.fuelType} · {order.quantity}L</td>
                   <td className="px-6 py-3.5 text-surface-700 max-w-[160px] truncate text-[13px]">{order.deliveryLocation.address}</td>
                   <td className="px-6 py-3.5 font-semibold text-surface-800 text-[13px]">Rs. {order.pricing.totalPrice}</td>
+                  <td className="px-6 py-3.5">
+                    {predictions[order._id] ? (
+                      <Badge variant={RISK_BADGE[predictions[order._id].riskTag]?.variant || "neutral"}>
+                        {predictions[order._id].riskTag} ({predictions[order._id].probability}%)
+                      </Badge>
+                    ) : order.status === "pending" ? (
+                      <span className="text-[11px] text-surface-300">—</span>
+                    ) : (
+                      <span className="text-[11px] text-surface-300">—</span>
+                    )}
+                  </td>
                   <td className="px-6 py-3.5 text-surface-800 text-[13px]">{order.assignedDriverId?`${order.assignedDriverId.firstName} ${order.assignedDriverId.lastName}`:<span className="text-surface-300">—</span>}</td>
                   <td className="px-6 py-3.5"><Badge variant={BADGE_V[order.status]||"neutral"} dot>{order.status.replace("_"," ")}</Badge></td>
                   <td className="px-6 py-3.5 text-surface-700 text-xs">{new Date(order.createdAt).toLocaleDateString()}</td>
@@ -111,6 +153,17 @@ export default function OrdersPage() {
           <InfoSection title="Fuel Info" icon={faGasPump}><div className="grid grid-cols-2 gap-3 text-sm"><div><p className="text-xs text-surface-950 font-bold uppercase tracking-tight mb-0.5">Type</p><p className="font-medium capitalize text-surface-600">{sel.fuelType}</p></div><div><p className="text-xs text-surface-950 font-bold uppercase tracking-tight mb-0.5">Quantity</p><p className="font-medium text-surface-600">{sel.quantity} L</p></div><div><p className="text-xs text-surface-950 font-bold uppercase tracking-tight mb-0.5">Price/L</p><p className="font-medium text-surface-600">Rs. {sel.pricing.pricePerLiter}</p></div><div><p className="text-xs text-surface-950 font-bold uppercase tracking-tight mb-0.5">Source</p><p className="font-medium capitalize text-surface-600">{sel.requestSource}</p></div></div></InfoSection>
           <InfoSection title="Location" icon={faLocationDot}><p className="text-sm font-medium text-surface-600">{sel.deliveryLocation.address}</p>{sel.deliveryLocation.landmark&&<p className="text-xs text-surface-600 mt-0.5">{sel.deliveryLocation.landmark}</p>}</InfoSection>
           <InfoSection title="Pricing"><div className="space-y-2 text-sm"><div className="flex justify-between text-surface-600"><span>Fuel Cost</span><span>Rs. {sel.pricing.fuelCost}</span></div><div className="flex justify-between text-surface-600"><span>Delivery Fee</span><span>Rs. {sel.pricing.deliveryFee}</span></div>{sel.pricing.emergencyFee>0&&<div className="flex justify-between text-danger-500"><span>Emergency Fee</span><span>Rs. {sel.pricing.emergencyFee}</span></div>}<div className="flex justify-between font-semibold text-surface-950 border-t border-surface-200 pt-2 mt-1"><span>Total</span><span>Rs. {sel.pricing.totalPrice}</span></div></div></InfoSection>
+          {predictions[sel._id] && (
+            <InfoSection title="Cancellation Risk" icon={faChartLine} variant={predictions[sel._id].riskTag === "Low" ? "success" : predictions[sel._id].riskTag === "Medium" ? "warning" : "danger"}>
+              <div className="flex items-center gap-2">
+                <Badge variant={RISK_BADGE[predictions[sel._id].riskTag]?.variant || "neutral"}>
+                  {predictions[sel._id].riskTag}
+                </Badge>
+                <span className="font-semibold text-surface-800">{predictions[sel._id].probability}%</span>
+                <span className="text-xs text-surface-400">cancellation probability</span>
+              </div>
+            </InfoSection>
+          )}
           {sel.note&&<InfoSection title="Note" icon={faNoteSticky} variant="warning"><p className="text-sm text-surface-600">{sel.note}</p></InfoSection>}
           {sel.status==="cancelled"&&<InfoSection title="Cancellation Reason" icon={faBan} variant="danger"><p className="text-sm text-surface-600">{sel.cancelReason||<span className="text-surface-400 italic">No reason provided</span>}</p></InfoSection>}
           {sel.assignedDriverId&&<InfoSection title="Assigned Driver" icon={faCircleCheck} variant="success"><p className="font-semibold text-surface-600">{sel.assignedDriverId.firstName} {sel.assignedDriverId.lastName}</p><p className="text-sm text-surface-600">{sel.assignedDriverId.contactNumber}</p><p className="text-xs text-surface-600 mt-0.5">{sel.assignedDriverId.vehicleInfo?.vehicleModel} · {sel.assignedDriverId.vehicleInfo?.vehicleNumber}</p></InfoSection>}

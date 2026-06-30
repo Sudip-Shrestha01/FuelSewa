@@ -120,11 +120,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     // Clear FCM token from the opposite collection to prevent cross-role notifications
-    if (source === "driver") {
-      await User.updateMany({ fcmToken: account.fcmToken }, { $set: { fcmToken: null } }).catch(() => {});
-    } else {
-      const Driver = (await import("../models/driver.model")).default;
-      await Driver.updateMany({ fcmToken: account.fcmToken }, { $set: { fcmToken: null } }).catch(() => {});
+    if (account.fcmToken) {
+      if (source === "driver") {
+        await User.updateMany({ fcmToken: account.fcmToken }, { $set: { fcmToken: null } }).catch(() => {});
+      } else {
+        await Driver.updateMany({ fcmToken: account.fcmToken }, { $set: { fcmToken: null } }).catch(() => {});
+      }
     }
 
     res.status(200).json({

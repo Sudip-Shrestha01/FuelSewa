@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartPie, faBoxes, faTruck, faUsers,
   faTag, faRightFromBracket, faChevronLeft, faChevronRight,
-  faMapLocationDot, faBell,
+  faMapLocationDot, faBell, faBrain,
 } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
 
@@ -16,6 +16,7 @@ const links = [
   { to: "/drivers", label: "Drivers", icon: faTruck },
   { to: "/customers", label: "Customers", icon: faUsers },
   { to: "/pricing", label: "Pricing", icon: faTag },
+  { to: "/predictions", label: "AI Predictions", icon: faBrain },
 ];
 
 export default function Sidebar() {
