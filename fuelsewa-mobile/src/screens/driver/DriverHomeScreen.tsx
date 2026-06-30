@@ -259,7 +259,7 @@ function buildDynamicDashboardMapHTML(
 }
 
 export default function DriverHomeScreen() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const navigation = useNavigation<any>();
   const webviewRef = useRef<WebView>(null);
 
@@ -545,7 +545,7 @@ export default function DriverHomeScreen() {
       <SafeAreaView style={styles.floatingHeader} edges={["top"]}>
         <View style={styles.headerRow}>
           {/* Driver profile button */}
-          <TouchableOpacity style={styles.profileBtn} onPress={logout} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.profileBtn} onPress={() => navigation.navigate("Profile")} activeOpacity={0.85}>
             <Text style={styles.profileInitial}>
               {user?.firstName?.[0]?.toUpperCase() ?? "D"}
             </Text>
@@ -577,15 +577,25 @@ export default function DriverHomeScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Compact Earnings Capsule */}
-          <TouchableOpacity 
-            style={styles.earningsCapsule}
-            onPress={() => navigation.navigate("DriverOrders")}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.earningsLabel}>TODAY</Text>
-            <Text style={styles.earningsVal}>Rs.{earnings}</Text>
-          </TouchableOpacity>
+          {/* Notification bell + Earnings */}
+          <View style={styles.headerRightGroup}>
+            <TouchableOpacity
+              style={styles.notifBellBtn}
+              onPress={() => navigation.navigate("Notifications")}
+              activeOpacity={0.8}
+            >
+              <Icon name="notifications" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.earningsCapsule}
+              onPress={() => navigation.navigate("Orders")}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.earningsLabel}>Rs.</Text>
+              <Text style={styles.earningsVal}>{earnings}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -650,7 +660,7 @@ export default function DriverHomeScreen() {
             <View style={styles.onlineActionsRow}>
               <TouchableOpacity 
                 style={styles.ordersListShortcutBtn}
-                onPress={() => navigation.navigate("DriverOrders")}
+                onPress={() => navigation.navigate("Orders")}
               >
                 <Icon name="list" size={20} color="#FFFFFF" />
                 <Text style={styles.ordersListShortcutText}>All Assignments ({assignedCount})</Text>
@@ -743,7 +753,7 @@ export default function DriverHomeScreen() {
 
               <TouchableOpacity 
                 style={styles.sheetOrdersShortcutBtn}
-                onPress={() => navigation.navigate("DriverOrders")}
+                onPress={() => navigation.navigate("Orders")}
               >
                 <Text style={styles.sheetOrdersShortcutText}>View All Assigned Shipments</Text>
               </TouchableOpacity>
@@ -843,12 +853,34 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#9CA3AF",
   },
+  headerRightGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  notifBellBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#2C2C2E",
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1.5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
+  },
   earningsCapsule: {
     backgroundColor: "#1C1C1E",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 14,
     alignItems: "center",
+    flexDirection: "row",
+    gap: 3,
     borderColor: "rgba(255,255,255,0.1)",
     borderWidth: 1.5,
     shadowColor: "#000",
@@ -858,16 +890,14 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   earningsLabel: {
-    fontSize: 8,
+    fontSize: 10,
     color: "#9CA3AF",
-    fontWeight: "800",
-    letterSpacing: 0.5,
+    fontWeight: "700",
   },
   earningsVal: {
     fontSize: 13,
     fontWeight: "900",
     color: "#BEF264",
-    marginTop: 1,
   },
 
   // Floating address tag

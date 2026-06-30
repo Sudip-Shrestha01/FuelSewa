@@ -5,66 +5,57 @@ import { MaterialIcons as Icon } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DriverHomeScreen from "../screens/driver/DriverHomeScreen";
 import DriverOrdersScreen from "../screens/driver/DriverOrdersScreen";
+import DriverProfileScreen from "../screens/driver/DriverProfileScreen";
 import NotificationsScreen from "../screens/shared/NotificationsScreen";
-import { useNotificationStore } from "../store/notificationStore";
 import { Colors } from "../theme/colors";
 
 export type DriverTabParamList = {
-  Home: undefined;
+  Dashboard: undefined;
   Orders: undefined;
+  Profile: undefined;
+};
+
+export type DriverStackParamList = {
+  DriverTabs: undefined;
   Notifications: undefined;
 };
 
 const Tab = createBottomTabNavigator<DriverTabParamList>();
 
-const DRIVER_TYPES = ["order_assigned", "trip_started", "trip_completed"];
-
 function DriverTabs() {
   const insets = useSafeAreaInsets();
-  const allNotifications = useNotificationStore((s) => s.notifications);
-  const unreadCount = allNotifications.filter(
-    (n) => !n.read && (DRIVER_TYPES.includes(n.type) || n.type === "info")
-  ).length;
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: Colors.primaryDark,
-        tabBarInactiveTintColor: Colors.gray400,
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.gray500,
         tabBarStyle: {
-          backgroundColor: Colors.white,
-          borderTopColor: "#F1F5F9",
+          backgroundColor: "#1C1C1E",
+          borderTopColor: "rgba(255,255,255,0.08)",
           borderTopWidth: 1,
-          height: 56 + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: 6,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom + 4,
+          paddingTop: 8,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "700" },
         tabBarIcon: ({ color, size }) => {
           const icons: Record<string, string> = {
-            Home: "home",
-            Orders: "assignment",
-            Notifications: "notifications",
+            Dashboard: "home",
+            Orders: "receipt-long",
+            Profile: "person",
           };
           return <Icon name={(icons[route.name] ?? "circle") as any} size={size} color={color} />;
         },
       })}
     >
-      <Tab.Screen name="Home" component={DriverHomeScreen} options={{ title: "Dashboard" }} />
-      <Tab.Screen name="Orders" component={DriverOrdersScreen} options={{ title: "My Orders" }} />
-      <Tab.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{ tabBarBadge: unreadCount > 0 ? unreadCount : undefined }}
-      />
+      <Tab.Screen name="Dashboard" component={DriverHomeScreen} options={{ title: "Dashboard" }} />
+      <Tab.Screen name="Orders" component={DriverOrdersScreen} options={{ title: "My Trips" }} />
+      <Tab.Screen name="Profile" component={DriverProfileScreen} options={{ title: "Profile" }} />
     </Tab.Navigator>
   );
 }
-
-export type DriverStackParamList = {
-  DriverTabs: undefined;
-};
 
 const Stack = createNativeStackNavigator<DriverStackParamList>();
 
@@ -72,6 +63,11 @@ export default function DriverNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="DriverTabs" component={DriverTabs} />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ animation: "slide_from_right" }}
+      />
     </Stack.Navigator>
   );
 }

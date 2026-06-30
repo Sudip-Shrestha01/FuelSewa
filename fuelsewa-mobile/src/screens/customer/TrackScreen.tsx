@@ -11,7 +11,7 @@ import { io, Socket } from "socket.io-client";
 import api from "../../api/axios";
 import { Colors } from "../../theme/colors";
 
-const SOCKET_URL = "http://192.168.1.89:3000";
+const SOCKET_URL = (api.defaults.baseURL || "http://localhost:3000/api").replace(/\/api$/, "");
 
 interface Location {
   latitude: number;
@@ -314,8 +314,8 @@ export default function TrackScreen() {
       <View style={styles.center}>
         <Icon name="error-outline" size={60} color={Colors.gray300} />
         <Text style={styles.errorText}>{error || "Something went wrong"}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.retryText}>Go Back</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => (navigation as any).navigate("Home")}>
+          <Text style={styles.retryText}>Go to Home</Text>
         </TouchableOpacity>
       </View>
     );
@@ -415,17 +415,6 @@ const styles = StyleSheet.create({
   backBtn: { marginRight: 12 },
   headerTitle: { fontSize: 18, fontWeight: "700", color: Colors.black },
   headerSub: { fontSize: 12, color: Colors.gray500, marginTop: 1 },
-  liveBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FEE2E2",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    gap: 5,
-  },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#DC2626" },
-  liveText: { fontSize: 11, fontWeight: "800", color: "#DC2626", letterSpacing: 0.5 },
   mapContainer: { flex: 1 },
   map: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
