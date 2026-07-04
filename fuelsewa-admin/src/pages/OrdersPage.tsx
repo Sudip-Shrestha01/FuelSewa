@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faEye, faUserPlus, faGasPump, faBoxes,
   faLocationDot, faUser, faNoteSticky, faCircleCheck, faBan,
-  faChartLine,
+  faChartLine, faBrain, faRotate,
 } from "@fortawesome/free-solid-svg-icons";
 import api from "../api/axios";
 import PageLoader from "../components/ui/PageLoader";
@@ -39,6 +39,20 @@ const RISK_BADGE: Record<string, { variant: "success" | "warning" | "danger"; la
   "Very High": { variant: "danger", label: "Very High" },
 };
 
+const riskColor = (val: number) => {
+  if (val < 0.2) return "text-emerald-600 bg-emerald-50 border-emerald-200";
+  if (val < 0.4) return "text-amber-600 bg-amber-50 border-amber-200";
+  if (val < 0.6) return "text-orange-600 bg-orange-50 border-orange-200";
+  return "text-red-600 bg-red-50 border-red-200";
+};
+
+const riskDot = (val: number) => {
+  if (val < 0.2) return "bg-emerald-500";
+  if (val < 0.4) return "bg-amber-500";
+  if (val < 0.6) return "bg-orange-500";
+  return "bg-red-500";
+};
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]); const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true); const [activeTab, setActiveTab] = useState<"active"|"completed"|"cancelled">("active");
@@ -47,30 +61,36 @@ export default function OrdersPage() {
   const [driverId, setDriverId] = useState(""); const [estMin, setEstMin] = useState("");
   const [assigning, setAssigning] = useState(false); const [assignErr, setAssignErr] = useState("");
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
+  const [predictionError, setPredictionError] = useState(false);
 
-  const fetchPredictions = useCallback(async (ordersToFetch: Order[]) => {
-    const pending = ordersToFetch.filter(o => o.status === "pending");
-    if (pending.length === 0) return;
-    const results: Record<string, Prediction> = {};
-    await Promise.all(
-      pending.map(async (order) => {
-        try {
-          const res = await api.post("/prediction/predict", { orderId: order._id });
-          results[order._id] = res.data.data;
-        } catch {
-          // ML service unavailable - skip
+  const fetch = async () => {
+    try {
+      const [o, d] = await Promise.all([
+        api.get("/admin/orders"),
+        api.get("/admin/drivers"),
+      ]);
+      setOrders(o.data.data);
+      setDrivers(d.data.data);
+      try {
+        const riskRes = await api.get("/prediction/high-risk-orders");
+        const highRisk: any[] = riskRes.data.data ?? [];
+        const results: Record<string, Prediction> = {};
+        for (const h of highRisk) {
+          results[h._id] = { probability: h.probability, riskTag: h.riskTag };
         }
-      })
-    );
-    setPredictions(prev => ({ ...prev, ...results }));
-  }, []);
-
-  const fetch = async () => { try { const [o,d] = await Promise.all([api.get("/admin/orders"),api.get("/admin/drivers")]); setOrders(o.data.data); setDrivers(d.data.data); fetchPredictions(o.data.data); } finally { setLoading(false); } };
+        setPredictions(results);
+        setPredictionError(false);
+      } catch {
+        setPredictionError(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => { fetch(); }, []);
-  // Reset page when tab changes
+
   useEffect(() => { setPage(1); }, [activeTab]);
 
-  // Auto-open order from notification navigation
   const location = useLocation();
   useEffect(() => {
     const state = location.state as { openOrderId?: string } | null;
@@ -105,6 +125,12 @@ export default function OrdersPage() {
           </button>
         ))}
       </div>
+      {predictionError && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2.5 rounded-xl text-xs">
+          <FontAwesomeIcon icon={faBrain} className="text-amber-500" />
+          ML service unavailable — risk predictions are not being generated for pending orders.
+        </div>
+      )}
       <div className="bg-white border border-surface-200/80 rounded-xl overflow-hidden shadow-card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -120,9 +146,20 @@ export default function OrdersPage() {
                   <td className="px-6 py-3.5 font-semibold text-surface-800 text-[13px]">Rs. {order.pricing.totalPrice}</td>
                   <td className="px-6 py-3.5">
                     {predictions[order._id] ? (
-                      <Badge variant={RISK_BADGE[predictions[order._id].riskTag]?.variant || "neutral"}>
-                        {predictions[order._id].riskTag} ({predictions[order._id].probability}%)
-                      </Badge>
+                      (() => {
+                        const p = predictions[order._id];
+                        const norm = p.probability / 100;
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-semibold border ${riskColor(norm)}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${riskDot(norm)}`} />
+                            {p.probability}%
+                          </span>
+                        );
+                      })()
+                    ) : order.status === "pending" && predictionError ? (
+                      <span className="text-[11px] text-red-300" title="ML service unavailable">
+                        ✕
+                      </span>
                     ) : order.status === "pending" ? (
                       <span className="text-[11px] text-surface-300">—</span>
                     ) : (
@@ -156,11 +193,11 @@ export default function OrdersPage() {
           {predictions[sel._id] && (
             <InfoSection title="Cancellation Risk" icon={faChartLine} variant={predictions[sel._id].riskTag === "Low" ? "success" : predictions[sel._id].riskTag === "Medium" ? "warning" : "danger"}>
               <div className="flex items-center gap-2">
-                <Badge variant={RISK_BADGE[predictions[sel._id].riskTag]?.variant || "neutral"}>
-                  {predictions[sel._id].riskTag}
-                </Badge>
-                <span className="font-semibold text-surface-800">{predictions[sel._id].probability}%</span>
-                <span className="text-xs text-surface-400">cancellation probability</span>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold border ${riskColor(predictions[sel._id].probability / 100)}`}>
+                  <span className={`w-2 h-2 rounded-full ${riskDot(predictions[sel._id].probability / 100)}`} />
+                  {predictions[sel._id].probability}%
+                </span>
+                <span className="text-xs text-surface-400">{predictions[sel._id].riskTag} cancellation probability</span>
               </div>
             </InfoSection>
           )}

@@ -7,9 +7,9 @@ export default function DashboardLayout() {
   useNotifications();
 
   return (
-    <div className="flex min-h-screen bg-surface-50">
+    <div className="min-h-screen bg-surface-50">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="ml-[260px]">
         <div className="max-w-[1440px] mx-auto p-6 lg:p-8">
           <div className="animate-fade-in-up">
             <Outlet />

@@ -10,6 +10,7 @@ from flask_cors import CORS
 from train import (
     train_model, MODEL_PATH, PREPROCESSOR_PATH,
     load_metrics, record_outcome, get_new_data_count, NEW_DATA_PATH,
+    load_training_history,
 )
 
 app = Flask(__name__)
@@ -153,6 +154,14 @@ def training_stats():
                 "last_metrics": metrics_data,
             }
         })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/training-history", methods=["GET"])
+def training_history():
+    try:
+        history = load_training_history()
+        return jsonify({"success": True, "data": history})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

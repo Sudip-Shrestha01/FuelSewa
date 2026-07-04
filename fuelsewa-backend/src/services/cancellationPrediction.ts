@@ -10,14 +10,14 @@ interface PredictionResult {
 
 interface MetricsResult {
   f1_score: number;
+  accuracy: number;
   confusion_matrix: number[][];
   classification_report: Record<string, any>;
-  heatmap: string;
-  feature_importance: string;
   feature_importance_data: [string, number][];
   n_samples: number;
   n_cancelled: number;
   new_samples: number;
+  trained_at: string;
 }
 
 interface RecordOutcomeResult {
@@ -31,6 +31,18 @@ interface TrainingStatsResult {
   auto_retrain_threshold: number;
   model_trained: boolean;
   last_metrics: MetricsResult | null;
+}
+
+interface HighRiskOrder {
+  _id: string;
+  customerName: string;
+  fuelType: string;
+  quantity: number;
+  totalPrice: number;
+  distance_km: number;
+  createdAt: string;
+  probability: number;
+  riskTag: string;
 }
 
 const client = axios.create({
@@ -102,6 +114,54 @@ export async function getTrainingStats(): Promise<TrainingStatsResult> {
     return data.data;
   } catch {
     return { new_samples: 0, auto_retrain_threshold: 20, model_trained: false, last_metrics: null };
+  }
+}
+
+export async function getHighRiskOrders(): Promise<HighRiskOrder[]> {
+  const pendingOrders = await Order.find({
+    status: { $in: ["pending", "accepted"] },
+  })
+    .populate("userId", "firstName lastName")
+    .lean();
+
+  const results = await Promise.allSettled(
+    pendingOrders.map(async (order: any) => {
+      const user = order.userId || {};
+      const customerName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unknown";
+      // Restore raw userId so buildOrderFeatures can query past orders correctly
+      const rawUserId = user._id || user;
+      order.userId = rawUserId;
+      const features = await buildOrderFeatures(order);
+      const prediction = await predictCancellation(features);
+      return {
+        _id: order._id.toString(),
+        customerName,
+        fuelType: order.fuelType,
+        quantity: order.quantity,
+        totalPrice: order.pricing?.totalPrice || 0,
+        distance_km: order.distance_km || 0,
+        createdAt: order.createdAt?.toISOString?.() || new Date().toISOString(),
+        probability: prediction.probability,
+        riskTag: prediction.riskTag,
+      };
+    })
+  );
+
+  const orders: HighRiskOrder[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") orders.push(r.value);
+  }
+
+  orders.sort((a, b) => b.probability - a.probability);
+  return orders;
+}
+
+export async function getTrainingHistory(): Promise<any[]> {
+  try {
+    const { data } = await client.get("/training-history");
+    return data.data;
+  } catch {
+    return [];
   }
 }
 

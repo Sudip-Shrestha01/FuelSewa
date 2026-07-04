@@ -1,4 +1,5 @@
 import sys, json, os, warnings
+from datetime import datetime
 warnings.filterwarnings("ignore")
 
 import pandas as pd
@@ -11,7 +12,7 @@ import joblib
 
 from imblearn.over_sampling import SMOTE
 
-from plot_utils import generate_heatmap, generate_feature_importance, save_confusion_matrix_to_file
+from plot_utils import save_confusion_matrix_to_file
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -23,6 +24,7 @@ NEW_DATA_PATH = os.path.join(DATA_DIR, "new_order_outcomes.csv")
 MODEL_PATH = os.path.join(MODEL_DIR, "model.pkl")
 PREPROCESSOR_PATH = os.path.join(MODEL_DIR, "preprocessor.pkl")
 METRICS_PATH = os.path.join(SRC_DIR, "metrics.json")
+TRAINING_HISTORY_PATH = os.path.join(SRC_DIR, "training_history.json")
 BEST_SCORE_PATH = os.path.join(MODEL_DIR, "best_score.txt")
 BEST_PARAMS_PATH = os.path.join(MODEL_DIR, "best_params.txt")
 CLASSIFICATION_REPORT_PATH = os.path.join(MODEL_DIR, "classification_report.txt")
@@ -145,9 +147,6 @@ def train_model(csv_path: str = None):
 
     importances = model.feature_importances_.tolist()
 
-    heatmap_b64 = generate_heatmap(cm, ["Delivered", "Cancelled"])
-    importance_b64 = generate_feature_importance(feature_cols, importances)
-
     prep = {"feature_cols": feature_cols, "scaler": scaler}
     joblib.dump(prep, PREPROCESSOR_PATH)
     joblib.dump(model, MODEL_PATH)
@@ -163,22 +162,42 @@ def train_model(csv_path: str = None):
     with open(CLASSIFICATION_REPORT_PATH, "w") as f:
         f.write(report_text)
 
+    trained_at = datetime.now().isoformat()
+
     metrics = {
         "f1_score": round(f1, 4),
+        "accuracy": round(accuracy, 4),
         "confusion_matrix": cm,
         "classification_report": report_dict,
-        "heatmap": heatmap_b64,
-        "feature_importance": importance_b64,
         "feature_importance_data": list(zip(feature_cols, [round(v, 4) for v in importances])),
         "n_samples": len(df),
         "n_cancelled": int(df["target"].sum()),
         "new_samples": new_count,
         "best_params": best_params,
         "best_cv_f1": round(best_cv_score, 4),
+        "trained_at": trained_at,
     }
 
     with open(METRICS_PATH, "w") as f:
         json.dump(metrics, f)
+
+    history_entry = {
+        "f1_score": round(f1, 4),
+        "accuracy": round(accuracy, 4),
+        "n_samples": len(df),
+        "n_cancelled": int(df["target"].sum()),
+        "trained_at": trained_at,
+    }
+    history = []
+    if os.path.exists(TRAINING_HISTORY_PATH):
+        try:
+            with open(TRAINING_HISTORY_PATH, "r") as f:
+                history = json.load(f)
+        except Exception:
+            history = []
+    history.append(history_entry)
+    with open(TRAINING_HISTORY_PATH, "w") as f:
+        json.dump(history, f)
 
     return metrics
 
@@ -233,6 +252,15 @@ def record_outcome(data: dict):
             train_model()
             return {"recorded": True, "auto_retrained": True, "new_count": n}
     return {"recorded": True, "auto_retrained": False, "new_count": n}
+
+def load_training_history():
+    if os.path.exists(TRAINING_HISTORY_PATH):
+        try:
+            with open(TRAINING_HISTORY_PATH, "r") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
 
 def get_new_data_count():
     if not os.path.exists(NEW_DATA_PATH):

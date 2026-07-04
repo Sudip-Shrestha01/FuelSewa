@@ -6,6 +6,8 @@ import {
   healthCheck,
   buildOrderFeatures,
   getTrainingStats,
+  getHighRiskOrders,
+  getTrainingHistory,
 } from "../services/cancellationPrediction";
 import Order from "../models/order.model";
 
@@ -73,5 +75,23 @@ export const handleTrainingStats = async (req: Request, res: Response): Promise<
     res.status(200).json({ success: true, data: stats });
   } catch (error: any) {
     res.status(503).json({ success: false, message: "ML service unavailable", error: error.message });
+  }
+};
+
+export const handleHighRiskOrders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orders = await getHighRiskOrders();
+    res.status(200).json({ success: true, data: orders });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "Failed to get high-risk orders", error: error.message });
+  }
+};
+
+export const handleTrainingHistory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const history = await getTrainingHistory();
+    res.status(200).json({ success: true, data: history });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "Failed to get training history", error: error.message });
   }
 };
