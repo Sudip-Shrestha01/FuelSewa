@@ -9,15 +9,22 @@ from sklearn.metrics import f1_score, confusion_matrix, classification_report
 from sklearn.preprocessing import StandardScaler
 import joblib
 
-from plot_utils import generate_heatmap, generate_feature_importance
+from plot_utils import generate_heatmap, generate_feature_importance, save_confusion_matrix_to_file
 
-BASE_DIR = os.path.dirname(__file__)
-CSV_PATH = os.path.join(BASE_DIR, "fuelsewa_synthetic_orders.csv")
-NEW_DATA_PATH = os.path.join(BASE_DIR, "new_order_outcomes.csv")
-MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
-PREPROCESSOR_PATH = os.path.join(BASE_DIR, "preprocessor.pkl")
-METRICS_PATH = os.path.join(BASE_DIR, "metrics.json")
-AUTO_RETRAIN_THRESHOLD = 5  # retrain after 5 new records
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+MODEL_DIR = os.path.join(DATA_DIR, "model")
+SRC_DIR = os.path.join(BASE_DIR, "src")
+
+CSV_PATH = os.path.join(DATA_DIR, "fuelsewa_synthetic_orders.csv")
+NEW_DATA_PATH = os.path.join(DATA_DIR, "new_order_outcomes.csv")
+MODEL_PATH = os.path.join(MODEL_DIR, "model.pkl")
+PREPROCESSOR_PATH = os.path.join(MODEL_DIR, "preprocessor.pkl")
+METRICS_PATH = os.path.join(SRC_DIR, "metrics.json")
+BEST_SCORE_PATH = os.path.join(MODEL_DIR, "best_score.txt")
+CLASSIFICATION_REPORT_PATH = os.path.join(MODEL_DIR, "classification_report.txt")
+CONFUSION_MATRIX_PATH = os.path.join(MODEL_DIR, "confusion_matrix.png")
+AUTO_RETRAIN_THRESHOLD = 5
 
 def extract_hour(ts: str) -> float:
     return float(ts.split("T")[1].split(":")[0])
@@ -93,7 +100,10 @@ def train_model(csv_path: str = None):
     y_pred = model.predict(X_test_s)
     f1 = f1_score(y_test, y_pred)
     cm = confusion_matrix(y_test, y_pred).tolist()
-    report = classification_report(y_test, y_pred, output_dict=True, target_names=["delivered", "cancelled"])
+    report_dict = classification_report(y_test, y_pred, output_dict=True, target_names=["delivered", "cancelled"])
+    report_text = classification_report(y_test, y_pred, target_names=["delivered", "cancelled"])
+
+    accuracy = (y_test == y_pred).mean()
 
     importances = model.feature_importances_.tolist()
 
@@ -104,10 +114,16 @@ def train_model(csv_path: str = None):
     joblib.dump(prep, PREPROCESSOR_PATH)
     joblib.dump(model, MODEL_PATH)
 
+    save_confusion_matrix_to_file(cm, ["Delivered", "Cancelled"], CONFUSION_MATRIX_PATH)
+    with open(BEST_SCORE_PATH, "w") as f:
+        f.write(f"F1 Score: {f1:.4f}\nAccuracy: {accuracy:.4f}\n")
+    with open(CLASSIFICATION_REPORT_PATH, "w") as f:
+        f.write(report_text)
+
     metrics = {
         "f1_score": round(f1, 4),
         "confusion_matrix": cm,
-        "classification_report": report,
+        "classification_report": report_dict,
         "heatmap": heatmap_b64,
         "feature_importance": importance_b64,
         "feature_importance_data": list(zip(feature_cols, [round(v, 4) for v in importances])),
@@ -165,10 +181,9 @@ def record_outcome(data: dict):
             writer.writeheader()
         writer.writerow(row)
 
-    # Count new records and auto-retrain if threshold reached
     if os.path.exists(NEW_DATA_PATH):
         with open(NEW_DATA_PATH, "r") as f:
-            n = sum(1 for _ in f) - 1  # minus header
+            n = sum(1 for _ in f) - 1
         if n >= AUTO_RETRAIN_THRESHOLD:
             train_model()
             return {"recorded": True, "auto_retrained": True, "new_count": n}
@@ -181,5 +196,5 @@ def get_new_data_count():
         return max(0, sum(1 for _ in f) - 1)
 
 if __name__ == "__main__":
-    result = train_model(CSV_PATH)
+    result = train_model()
     print(json.dumps(result, indent=2))
