@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from train import (
-    train_model, CSV_PATH, MODEL_PATH, PREPROCESSOR_PATH,
+    train_model, MODEL_PATH, PREPROCESSOR_PATH,
     load_metrics, record_outcome, get_new_data_count, NEW_DATA_PATH,
 )
 
