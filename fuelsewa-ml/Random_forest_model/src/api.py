@@ -35,10 +35,20 @@ feature_cols = [
     "hour_of_day", "day_of_week", "is_weekend",
     "isEmergency", "isFarZone",
     "fuelType", "requestSource", "priority",
+    "cost_per_km", "delivery_fee_ratio", "is_night", "quantity_x_distance",
+    "is_peak_hour", "is_late_night",
+    "past_orders", "past_cancellations", "past_cancellation_rate",
 ]
 
 def build_input_array(data: dict) -> np.ndarray:
     row = []
+    hour = float(data.get("hour_of_day", 0))
+    qty = float(data.get("quantity", 0))
+    dist = float(data.get("distance_km", 0))
+    total = float(data.get("totalPrice", 0))
+    fee = float(data.get("deliveryFee", 0))
+    p_orders = int(data.get("pastOrders", 0))
+    p_cancels = int(data.get("pastCancellations", 0))
     for col in feature_cols:
         if col in cat_encode:
             val = cat_encode[col].get(str(data.get(col, "unknown")).strip(), -1.0)
@@ -46,6 +56,24 @@ def build_input_array(data: dict) -> np.ndarray:
             val = float(bool(data.get(col, False)))
         elif col in ("is_weekend",):
             val = float(bool(data.get(col, False)))
+        elif col == "cost_per_km":
+            val = total / dist if dist > 0 else 0.0
+        elif col == "delivery_fee_ratio":
+            val = fee / total if total > 0 else 0.0
+        elif col == "is_night":
+            val = 1.0 if (hour < 6 or hour > 22) else 0.0
+        elif col == "quantity_x_distance":
+            val = qty * dist
+        elif col == "is_peak_hour":
+            val = 1.0 if (7 <= hour < 9) or (17 <= hour < 19) else 0.0
+        elif col == "is_late_night":
+            val = 1.0 if hour < 5 else 0.0
+        elif col == "past_orders":
+            val = float(p_orders)
+        elif col == "past_cancellations":
+            val = float(p_cancels)
+        elif col == "past_cancellation_rate":
+            val = float(p_cancels / p_orders) if p_orders > 0 else 0.0
         else:
             val = float(data.get(col, 0.0))
         row.append(val)

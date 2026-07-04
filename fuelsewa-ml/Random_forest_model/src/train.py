@@ -4,10 +4,12 @@ warnings.filterwarnings("ignore")
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import f1_score, confusion_matrix, classification_report
 from sklearn.preprocessing import StandardScaler
 import joblib
+
+from imblearn.over_sampling import SMOTE
 
 from plot_utils import generate_heatmap, generate_feature_importance, save_confusion_matrix_to_file
 
@@ -22,6 +24,7 @@ MODEL_PATH = os.path.join(MODEL_DIR, "model.pkl")
 PREPROCESSOR_PATH = os.path.join(MODEL_DIR, "preprocessor.pkl")
 METRICS_PATH = os.path.join(SRC_DIR, "metrics.json")
 BEST_SCORE_PATH = os.path.join(MODEL_DIR, "best_score.txt")
+BEST_PARAMS_PATH = os.path.join(MODEL_DIR, "best_params.txt")
 CLASSIFICATION_REPORT_PATH = os.path.join(MODEL_DIR, "classification_report.txt")
 CONFUSION_MATRIX_PATH = os.path.join(MODEL_DIR, "confusion_matrix.png")
 AUTO_RETRAIN_THRESHOLD = 5
@@ -67,12 +70,41 @@ def train_model(csv_path: str = None):
     df["day_of_week"] = df["createdAt"].apply(extract_dow)
     df["is_weekend"] = (df["day_of_week"] >= 5).astype(float)
 
+    df["cost_per_km"] = np.where(
+        df["distance_km"] > 0,
+        df["pricing_totalPrice"] / df["distance_km"],
+        0
+    )
+    df["delivery_fee_ratio"] = df["pricing_deliveryFee"] / df["pricing_totalPrice"].replace(0, 1)
+    df["is_night"] = ((df["hour_of_day"] < 6) | (df["hour_of_day"] > 22)).astype(float)
+    df["quantity_x_distance"] = df["quantity"] * df["distance_km"]
+
+    df["is_peak_hour"] = (
+        ((df["hour_of_day"] >= 7) & (df["hour_of_day"] < 9)) |
+        ((df["hour_of_day"] >= 17) & (df["hour_of_day"] < 19))
+    ).astype(float)
+    df["is_late_night"] = (df["hour_of_day"] < 5).astype(float)
+
+    df = df.sort_values(["userId", "createdAt"])
+    df["past_orders"] = df.groupby("userId").cumcount()
+    df["past_cancellations"] = df.groupby("userId")["target"].cumsum().shift(1).fillna(0)
+    df["past_orders"] = df["past_orders"].astype(int)
+    df["past_cancellations"] = df["past_cancellations"].astype(int)
+    df["past_cancellation_rate"] = np.where(
+        df["past_orders"] > 0,
+        df["past_cancellations"] / df["past_orders"],
+        0.0
+    )
+
     feature_cols = [
         "quantity", "pricing_totalPrice", "pricing_deliveryFee",
         "pricing_emergencyFee", "estimatedDeliveryMinutes", "distance_km",
         "hour_of_day", "day_of_week", "is_weekend",
         "isEmergency", "isFarZone",
         "fuelType", "requestSource", "priority",
+        "cost_per_km", "delivery_fee_ratio", "is_night", "quantity_x_distance",
+        "is_peak_hour", "is_late_night",
+        "past_orders", "past_cancellations", "past_cancellation_rate",
     ]
 
     X = df[feature_cols].values.astype(np.float64)
@@ -86,16 +118,22 @@ def train_model(csv_path: str = None):
     X_train_s = scaler.fit_transform(X_train)
     X_test_s = scaler.transform(X_test)
 
-    model = RandomForestClassifier(
-        n_estimators=200,
-        max_depth=15,
-        min_samples_split=5,
-        min_samples_leaf=2,
-        class_weight="balanced",
-        random_state=42,
-        n_jobs=1,
-    )
-    model.fit(X_train_s, y_train)
+    smote = SMOTE(random_state=42)
+    X_train_s, y_train = smote.fit_resample(X_train_s, y_train)
+
+    param_grid = {
+        "n_estimators": [100, 200, 300],
+        "max_depth": [10, 15, 20, None],
+        "min_samples_split": [2, 5, 10],
+        "min_samples_leaf": [1, 2, 4],
+    }
+    base_rf = RandomForestClassifier(class_weight="balanced", random_state=42, n_jobs=1)
+    grid = GridSearchCV(base_rf, param_grid, cv=3, scoring="f1", n_jobs=1, verbose=0)
+    grid.fit(X_train_s, y_train)
+
+    model = grid.best_estimator_
+    best_params = grid.best_params_
+    best_cv_score = grid.best_score_
 
     y_pred = model.predict(X_test_s)
     f1 = f1_score(y_test, y_pred)
@@ -116,7 +154,12 @@ def train_model(csv_path: str = None):
 
     save_confusion_matrix_to_file(cm, ["Delivered", "Cancelled"], CONFUSION_MATRIX_PATH)
     with open(BEST_SCORE_PATH, "w") as f:
-        f.write(f"F1 Score: {f1:.4f}\nAccuracy: {accuracy:.4f}\n")
+        f.write(f"F1 Score: {f1:.4f}\n")
+        f.write(f"Accuracy: {accuracy:.4f}\n")
+        f.write(f"CV Best F1: {best_cv_score:.4f}\n")
+    with open(BEST_PARAMS_PATH, "w") as f:
+        for k, v in best_params.items():
+            f.write(f"{k}: {v}\n")
     with open(CLASSIFICATION_REPORT_PATH, "w") as f:
         f.write(report_text)
 
@@ -130,6 +173,8 @@ def train_model(csv_path: str = None):
         "n_samples": len(df),
         "n_cancelled": int(df["target"].sum()),
         "new_samples": new_count,
+        "best_params": best_params,
+        "best_cv_f1": round(best_cv_score, 4),
     }
 
     with open(METRICS_PATH, "w") as f:
