@@ -1,2 +1,3 @@
 F1 Score: 0.6667
-Accuracy: 0.7963
+Accuracy: 0.8086
+CV Best F1: 0.8421

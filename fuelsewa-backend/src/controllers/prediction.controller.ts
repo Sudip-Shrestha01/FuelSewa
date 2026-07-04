@@ -41,7 +41,7 @@ export const handlePredict = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const features = buildOrderFeatures(order);
+    const features = await buildOrderFeatures(order);
     const prediction = await predictCancellation(features);
     res.status(200).json({ success: true, data: prediction });
   } catch (error: any) {

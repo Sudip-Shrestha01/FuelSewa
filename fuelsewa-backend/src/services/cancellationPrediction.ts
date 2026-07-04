@@ -1,4 +1,5 @@
 import axios from "axios";
+import Order from "../models/order.model";
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8001";
 
@@ -56,6 +57,9 @@ export async function predictCancellation(
     hour_of_day: orderFeatures.hour_of_day ?? now.getHours(),
     day_of_week: orderFeatures.day_of_week ?? now.getDay(),
     is_weekend: orderFeatures.is_weekend ?? [0, 6].includes(now.getDay()),
+    userId: orderFeatures.userId || "",
+    pastOrders: orderFeatures.pastOrders || 0,
+    pastCancellations: orderFeatures.pastCancellations || 0,
   };
 
   const { data } = await client.post("/predict", payload);
@@ -101,8 +105,21 @@ export async function getTrainingStats(): Promise<TrainingStatsResult> {
   }
 }
 
-export function buildOrderFeatures(order: any): Record<string, any> {
+export async function buildOrderFeatures(order: any): Promise<Record<string, any>> {
   const now = new Date();
+
+  const userId = order.userId?._id?.toString() || order.userId?.toString() || "";
+  let pastOrders = 0;
+  let pastCancellations = 0;
+  if (userId) {
+    const past = await Order.find({
+      userId: order.userId,
+      _id: { $ne: order._id },
+    }).lean();
+    pastOrders = past.length;
+    pastCancellations = past.filter((o: any) => o.status === "cancelled").length;
+  }
+
   return {
     fuelType: order.fuelType,
     quantity: order.quantity,
@@ -118,6 +135,9 @@ export function buildOrderFeatures(order: any): Record<string, any> {
     hour_of_day: now.getHours(),
     day_of_week: now.getDay(),
     is_weekend: [0, 6].includes(now.getDay()),
+    userId,
+    pastOrders,
+    pastCancellations,
   };
 }
 
