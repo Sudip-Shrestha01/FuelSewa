@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faEye, faUserPlus, faGasPump, faBoxes,
   faLocationDot, faUser, faNoteSticky, faCircleCheck, faBan,
-  faChartLine, faBrain, faRotate,
+  faChartLine, faBrain,
 } from "@fortawesome/free-solid-svg-icons";
 import api from "../api/axios";
 import PageLoader from "../components/ui/PageLoader";
@@ -31,13 +31,6 @@ interface Prediction {
 
 const BADGE_V: Record<string, "warning"|"info"|"violet"|"success"|"danger"> = { pending:"warning", accepted:"info", in_progress:"violet", delivered:"success", cancelled:"danger" };
 const PAGE_SIZE = 10;
-
-const RISK_BADGE: Record<string, { variant: "success" | "warning" | "danger"; label: string }> = {
-  Low: { variant: "success", label: "Low" },
-  Medium: { variant: "warning", label: "Medium" },
-  High: { variant: "danger", label: "High" },
-  "Very High": { variant: "danger", label: "Very High" },
-};
 
 const riskColor = (val: number) => {
   if (val < 0.2) return "text-emerald-600 bg-emerald-50 border-emerald-200";

@@ -155,7 +155,7 @@ export default function DriversPage() {
           </table>
           {paginated.length === 0 && <EmptyState icon={faTruck} title="No drivers found" description="No drivers match your search criteria." />}
         </div>
-        <Pagination page={page} totalPages={totalPages} totalItems={filtered.length} itemLabel="drivers" onPageChange={setPage} />
+        <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} onPrev={() => setPage(p => Math.max(1, p - 1))} onNext={() => setPage(p => Math.min(totalPages, p + 1))} />
       </div>
 
       {/* Detail Modal */}

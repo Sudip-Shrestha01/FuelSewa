@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-
 import L from "leaflet";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faLocationDot, faTruck, faRoute, faGasPump,
+  faTruck, faRoute, faGasPump,
   faClock, faRoad, faBolt, faUserCheck, faSpinner,
   faChevronRight, faMapLocationDot, faCircleCheck,
   faTriangleExclamation, faXmark,
@@ -71,8 +71,6 @@ const createIcon = (color: string, emoji: string) =>
   });
 
 const orderIcon = createIcon("#F59E0B", "📍"); // Amber for Pending
-const orderAcceptedIcon = createIcon("#3B82F6", "🔵"); // Blue for Accepted
-const orderInProgressIcon = createIcon("#10B981", "⛽"); // Emerald for In Progress
 const orderEmergencyIcon = createIcon("#EF4444", "🆘"); // Red for SOS
 const driverIcon = createIcon("#10B981", "🚛");
 const selectedDriverIcon = createIcon("#3B82F6", "✓");

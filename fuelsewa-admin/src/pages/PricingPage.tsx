@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGasPump, faPenToSquare, faCheck, faXmark, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
+import { faGasPump, faPenToSquare, faCheck } from "@fortawesome/free-solid-svg-icons";
 import api from "../api/axios";
 import PageLoader from "../components/ui/PageLoader";
 
